@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { useDashboardTable, dateLocaleForUi } from "@/lib/i18n/dashboard-table";
 import { fillMessage } from "@/lib/i18n/interpolate";
-import type { Locale } from "@/lib/i18n/types";
 
 type Attempt = {
   userId: string;
@@ -39,8 +38,8 @@ type Props = {
   titleSuffix?: string;
 };
 
-function formatDate(d: Date | string, locale: Locale) {
-  return new Intl.DateTimeFormat(dateLocaleForUi(locale), {
+function formatDate(d: Date | string) {
+  return new Intl.DateTimeFormat(dateLocaleForUi(), {
     dateStyle: "short",
     timeStyle: "short",
   }).format(typeof d === "string" ? new Date(d) : d);
@@ -56,7 +55,6 @@ export default function StatisticsContent({
   titleSuffix = "",
 }: Props) {
   const t = useT();
-  const locale = useLocale();
   const { dir, thClassCompact } = useDashboardTable();
   const [searchQuery, setSearchQuery] = useState("");
   const egp = t("common.egyptianPoundShort", "EGP");
@@ -106,7 +104,7 @@ export default function StatisticsContent({
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t(`${pq}.studentSearchPlaceholder`, "Student name or email…")}
           className="w-full max-w-md rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2 text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          dir={locale === "ar" ? "rtl" : "ltr"}
+          dir={"rtl"}
         />
         {trimmed && (
           <p className="mt-2 text-sm text-[var(--color-muted)]">
@@ -175,7 +173,7 @@ export default function StatisticsContent({
                     <td className="px-3 py-2 text-[var(--color-foreground)]">
                       {a.score} / {a.totalQuestions}
                     </td>
-                    <td className="px-3 py-2 text-[var(--color-muted)]">{formatDate(a.createdAt, locale)}</td>
+                    <td className="px-3 py-2 text-[var(--color-muted)]">{formatDate(a.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -220,7 +218,7 @@ export default function StatisticsContent({
                 {enrollments.length > 0 && (
                   <p className="mt-2 text-sm text-[var(--color-foreground)]">
                     {t(`${pq}.coursesLabel`, "Courses:")}{" "}
-                    {enrollments.map((e) => e.course.titleAr ?? e.course.title).join(locale === "ar" ? "، " : ", ")}
+                    {enrollments.map((e) => e.course.titleAr ?? e.course.title).join("، ")}
                   </p>
                 )}
                 {userAttempts.length > 0 && (

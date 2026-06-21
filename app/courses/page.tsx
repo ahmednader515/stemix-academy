@@ -1,13 +1,11 @@
-import { unstable_noStore } from "next/cache";
 import { getCoursesPublished, getTeacherIdsExcludedFromPublicCourseLists, getUserById } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { TeacherCoursesSearch, type TeacherCourseListItem } from "./TeacherCoursesSearch";
-import { getLocaleFromCookie, getServerTranslator } from "@/lib/i18n/server";
+import { getServerTranslator } from "@/lib/i18n/server";
 import { pickLocalizedText } from "@/lib/i18n/localized-field";
 
-/** عدم تخزين الصفحة مؤقتاً — الكورسات الجديدة والمحذوفة تظهر فوراً */
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+/** ISR — قائمة الدورات تُحدَّث كل 60 ثانية عبر unstable_cache */
+export const revalidate = 60;
 
 export async function generateMetadata() {
   const t = await getServerTranslator();
@@ -17,12 +15,11 @@ export async function generateMetadata() {
   };
 }
 
-type Props = { searchParams: Promise<{ category?: string; teacher?: string }> };
+type Props = { searchParams: Promise<{ category?: string; teacher?: string; q?: string }> };
 
 export default async function CoursesPage({ searchParams }: Props) {
-  unstable_noStore();
-  const [t, locale] = await Promise.all([getServerTranslator(), getLocaleFromCookie()]);
-  const { category: categorySlug, teacher: teacherId } = await searchParams;
+  const t = await getServerTranslator();
+  const { category: categorySlug, teacher: teacherId, q: initialQuery } = await searchParams;
   let courses: Awaited<ReturnType<typeof getCoursesPublished>> = [];
   try {
     courses = await getCoursesPublished(true);
@@ -63,9 +60,7 @@ export default async function CoursesPage({ searchParams }: Props) {
 
   const categoryName =
     categorySlug && filtered.length > 0
-      ? pickLocalizedText(
-          locale,
-          (filtered[0] as { category?: { nameAr?: string | null; name?: string | null } }).category?.nameAr ?? null,
+      ? pickLocalizedText((filtered[0] as { category?: { nameAr?: string | null; name?: string | null } }).category?.nameAr ?? null,
           (filtered[0] as { category?: { name?: string | null } }).category?.name ?? null,
         )
       : null;
@@ -93,6 +88,7 @@ export default async function CoursesPage({ searchParams }: Props) {
         <TeacherCoursesSearch
           courses={filtered as TeacherCourseListItem[]}
           groupByCategory={!!tid}
+          initialQuery={initialQuery?.trim() ?? ""}
         />
       ) : (
         <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)]/50 p-12 text-center">

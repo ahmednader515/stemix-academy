@@ -3,9 +3,8 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import {
   getUsersByRole,
-  getEnrollmentsWithCourseByUserId,
+  getAllEnrollmentsWithCourseGroupedByUser,
   getCoursesPublished,
-  backfillMissingStudentCopyrightCodes,
 } from "@/lib/db";
 import { getServerTranslator } from "@/lib/i18n/server";
 import { StudentsList } from "./StudentsList";
@@ -22,11 +21,10 @@ export default async function StudentsPage() {
   const isAdmin = session.user.role === "ADMIN";
   const isAssistant = session.user.role === "ASSISTANT_ADMIN";
 
-  await backfillMissingStudentCopyrightCodes().catch(() => {});
-
-  const [rows, coursesList] = await Promise.all([
+  const [rows, coursesList, enrollmentsByUserMap] = await Promise.all([
     getUsersByRole("STUDENT"),
     getCoursesPublished(true),
+    getAllEnrollmentsWithCourseGroupedByUser(),
   ]);
 
   let admins: Awaited<ReturnType<typeof getUsersByRole>> = [];
@@ -38,7 +36,7 @@ export default async function StudentsPage() {
     ]);
   }
 
-  const enrollmentsByUser = await Promise.all(rows.map((s) => getEnrollmentsWithCourseByUserId(s.id)));
+  const enrollmentsByUser = rows.map((s) => enrollmentsByUserMap.get(s.id) ?? []);
 
   const students = rows.map((s, i) => {
     const row = s as unknown as Record<string, unknown>;

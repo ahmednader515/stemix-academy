@@ -30,10 +30,8 @@ export function ReviewsManage() {
 
   const [form, setForm] = useState({
     text: "",
-    textEn: "",
     authorName: "",
     authorTitle: "",
-    authorTitleEn: "",
     avatarLetter: "",
     imageUrl: "",
   });
@@ -42,10 +40,8 @@ export function ReviewsManage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     text: "",
-    textEn: "",
     authorName: "",
     authorTitle: "",
-    authorTitleEn: "",
     avatarLetter: "",
     imageUrl: "",
   });
@@ -125,10 +121,10 @@ export function ReviewsManage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: form.text.trim() || "",
-          textEn: form.textEn.trim() || null,
+          textEn: null,
           authorName: form.authorName.trim() || "",
           authorTitle: form.authorTitle.trim() || null,
-          authorTitleEn: form.authorTitleEn.trim() || null,
+          authorTitleEn: null,
           avatarLetter: form.avatarLetter.trim() || null,
           imageUrl: form.imageUrl.trim() || null,
         }),
@@ -137,10 +133,8 @@ export function ReviewsManage() {
       if (!res.ok) throw new Error(data.error ?? t(`${Rm}.addFailed`));
       setForm({
         text: "",
-        textEn: "",
         authorName: "",
         authorTitle: "",
-        authorTitleEn: "",
         avatarLetter: "",
         imageUrl: "",
       });
@@ -158,10 +152,8 @@ export function ReviewsManage() {
     setEditingId(r.id);
     setEditForm({
       text: r.text,
-      textEn: r.textEn ?? "",
       authorName: r.authorName,
       authorTitle: r.authorTitle ?? "",
-      authorTitleEn: r.authorTitleEn ?? "",
       avatarLetter: r.avatarLetter ?? "",
       imageUrl: r.imageUrl ?? "",
     });
@@ -188,10 +180,10 @@ export function ReviewsManage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: editForm.text.trim() || "",
-          textEn: editForm.textEn.trim() || null,
+          textEn: null,
           authorName: editForm.authorName.trim() || "",
           authorTitle: editForm.authorTitle.trim() || null,
-          authorTitleEn: editForm.authorTitleEn.trim() || null,
+          authorTitleEn: null,
           avatarLetter: editForm.avatarLetter.trim() || null,
           imageUrl: editForm.imageUrl.trim() || null,
         }),
@@ -239,7 +231,7 @@ export function ReviewsManage() {
   return (
     <div className="mt-6 space-y-6">
       {error && (
-        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">
           {error}
         </div>
       )}
@@ -277,7 +269,7 @@ export function ReviewsManage() {
               className="w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
               placeholder={t(`${Rm}.placeholderImageUrlPaste`)}
             />
-            {imageError ? <p className="text-xs text-red-600 dark:text-red-400">{imageError}</p> : null}
+            {imageError ? <p className="text-xs text-red-600">{imageError}</p> : null}
             {form.imageUrl ? (
               <img
                 src={form.imageUrl}
@@ -294,14 +286,6 @@ export function ReviewsManage() {
               rows={3}
               className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
               placeholder={t(`${Rm}.placeholderReviewText`)}
-            />
-            <label className="mt-2 block text-xs font-medium text-[var(--color-muted)]">{t(`${Rm}.labelReviewTextEn`)}</label>
-            <textarea
-              value={form.textEn}
-              onChange={(e) => setForm((f) => ({ ...f, textEn: e.target.value }))}
-              rows={2}
-              className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
-              placeholder={t(`${Rm}.placeholderReviewTextEn`)}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -323,14 +307,6 @@ export function ReviewsManage() {
                 onChange={(e) => setForm((f) => ({ ...f, authorTitle: e.target.value }))}
                 className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
                 placeholder={t(`${Rm}.placeholderAuthorTitle`)}
-              />
-              <label className="mt-2 block text-xs font-medium text-[var(--color-muted)]">{t(`${Rm}.labelAuthorTitleEnOptional`)}</label>
-              <input
-                type="text"
-                value={form.authorTitleEn}
-                onChange={(e) => setForm((f) => ({ ...f, authorTitleEn: e.target.value }))}
-                className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
-                placeholder={t(`${Rm}.placeholderAuthorTitleEn`)}
               />
             </div>
           </div>
@@ -375,13 +351,6 @@ export function ReviewsManage() {
                       placeholder={t(`${Rm}.placeholderReviewText`)}
                       className="w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
                     />
-                    <textarea
-                      value={editForm.textEn}
-                      onChange={(e) => setEditForm((f) => ({ ...f, textEn: e.target.value }))}
-                      rows={2}
-                      placeholder={t(`${Rm}.editPlaceholderTextEn`)}
-                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                    />
                     <div className="flex flex-wrap gap-3">
                       <input
                         type="text"
@@ -395,13 +364,6 @@ export function ReviewsManage() {
                         value={editForm.authorTitle}
                         onChange={(e) => setEditForm((f) => ({ ...f, authorTitle: e.target.value }))}
                         placeholder={t(`${Rm}.editPlaceholderTitle`)}
-                        className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-sm"
-                      />
-                      <input
-                        type="text"
-                        value={editForm.authorTitleEn}
-                        onChange={(e) => setEditForm((f) => ({ ...f, authorTitleEn: e.target.value }))}
-                        placeholder={t(`${Rm}.editPlaceholderTitleEn`)}
                         className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-sm"
                       />
                       <input
@@ -442,7 +404,7 @@ export function ReviewsManage() {
                         placeholder={t(`${Rm}.editPlaceholderImageUrlRequired`)}
                         className="w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-sm"
                       />
-                      {editImageError ? <p className="text-xs text-red-600 dark:text-red-400">{editImageError}</p> : null}
+                      {editImageError ? <p className="text-xs text-red-600">{editImageError}</p> : null}
                       {editForm.imageUrl ? (
                         <img
                           src={editForm.imageUrl}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { getDir } from "@/lib/i18n/core";
 
 export function AddBalanceButton({
@@ -13,8 +13,7 @@ export function AddBalanceButton({
   studentName: string;
 }) {
   const t = useT();
-  const locale = useLocale();
-  const dir = getDir(locale);
+  const dir = getDir();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,7 +64,7 @@ export function AddBalanceButton({
               {t("dashboard.studentsPage.addBalanceModalTitlePrefix", "Add balance —")} {studentName}
             </h3>
             <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-              {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
               <input
                 type="number"
                 step="0.01"

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import {
   getUsersByRole,
-  getEnrollmentsWithCourseByUserId,
+  getAllEnrollmentsWithCourseGroupedByUser,
   getAllQuizAttemptsForAdmin,
   getTotalPlatformEarnings,
   getStudentsEnrolledInTeacherCourses,
@@ -25,19 +25,17 @@ export default async function StatisticsPage() {
 
   if (role === "TEACHER") {
     const teacherId = session.user.id;
-    const [students, attempts, totalEarnings, myCourses] = await Promise.all([
+    const [students, attempts, totalEarnings, myCourses, enrollmentsByUserMap] = await Promise.all([
       getStudentsEnrolledInTeacherCourses(teacherId),
       getQuizAttemptsForTeacher(teacherId).catch(() => []),
       getTotalEarningsForTeacher(teacherId),
       getCoursesWithCountsForCreator(teacherId),
+      getAllEnrollmentsWithCourseGroupedByUser(),
     ]);
     const myCourseIds = new Set(myCourses.map((row) => String((row as { id?: unknown }).id ?? "")));
 
-    const enrollmentsByUser = await Promise.all(
-      students.map(async (s) => {
-        const all = await getEnrollmentsWithCourseByUserId(s.id);
-        return all.filter((e) => myCourseIds.has(e.course.id));
-      }),
+    const enrollmentsByUser = students.map((s) =>
+      (enrollmentsByUserMap.get(s.id) ?? []).filter((e) => myCourseIds.has(e.course.id)),
     );
 
     const totalEnrollments = enrollmentsByUser.reduce((sum, e) => sum + e.length, 0);
@@ -89,15 +87,14 @@ export default async function StatisticsPage() {
     );
   }
 
-  const [students, attempts, totalEarnings] = await Promise.all([
+  const [students, attempts, totalEarnings, enrollmentsByUserMap] = await Promise.all([
     getUsersByRole("STUDENT"),
     getAllQuizAttemptsForAdmin().catch(() => []),
     getTotalPlatformEarnings(),
+    getAllEnrollmentsWithCourseGroupedByUser(),
   ]);
 
-  const enrollmentsByUser = await Promise.all(
-    students.map((s) => getEnrollmentsWithCourseByUserId(s.id))
-  );
+  const enrollmentsByUser = students.map((s) => enrollmentsByUserMap.get(s.id) ?? []);
 
   const totalEnrollments = enrollmentsByUser.reduce((sum, e) => sum + e.length, 0);
 

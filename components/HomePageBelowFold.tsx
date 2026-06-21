@@ -20,7 +20,7 @@ import { HomePlatformDetailsSection } from "@/components/HomePlatformDetailsSect
 import { parsePlatformDetailsItems } from "@/lib/platform-details";
 import { parsePlatformNewsItems } from "@/lib/platform-news";
 import { HomePlatformNewsSlider } from "@/components/HomePlatformNewsSlider";
-import { getLocaleFromCookie, getServerTranslator } from "@/lib/i18n/server";
+import { getServerTranslator } from "@/lib/i18n/server";
 import {
   HOMEPAGE_DEFAULT_CTA_BADGE_AR,
   HOMEPAGE_DEFAULT_CTA_BUTTON_AR,
@@ -48,7 +48,7 @@ export async function HomePageBelowFold({
   homepageSettings: HomepageSetting;
   session: Session | null;
 }) {
-  const [t, locale] = await Promise.all([getServerTranslator(), getLocaleFromCookie()]);
+  const t = await getServerTranslator();
   let courses: CourseWithCategory[] = [];
   let categories: Awaited<ReturnType<typeof getCategories>> = [];
   let reviews: Awaited<ReturnType<typeof getReviews>> = [];
@@ -122,7 +122,7 @@ export async function HomePageBelowFold({
   const platformNewsSlides = parsePlatformNewsItems(homepageSettings.platformNewsItems);
   const localizedPlatformNewsSlides = platformNewsSlides.map((item) => ({
     ...item,
-    description: pickLocalizedText(locale, item.description, item.descriptionEn),
+    description: pickLocalizedText(item.description, item.descriptionEn),
   }));
   const showPlatformNewsSection =
     Boolean(homepageSettings.platformNewsEnabled) && localizedPlatformNewsSlides.length > 0;
@@ -152,7 +152,7 @@ export async function HomePageBelowFold({
     const list = categoryIdToCourses.get(cat.id);
     if (list?.length) {
       sections.push({
-        title: pickLocalizedText(locale, (cat as { nameAr?: string | null }).nameAr, cat.name),
+        title: pickLocalizedText((cat as { nameAr?: string | null }).nameAr, cat.name),
         slug: cat.slug,
         courses: list,
       });
@@ -165,76 +165,49 @@ export async function HomePageBelowFold({
   const platformDetailsItems = parsePlatformDetailsItems(homepageSettings.platformDetailsItems);
   const localizedPlatformDetailsItems = platformDetailsItems.map((item) => ({
     ...item,
-    title: pickLocalizedText(locale, item.title, item.titleEn),
-    description: pickLocalizedText(locale, item.description, item.descriptionEn),
+    title: pickLocalizedText(item.title, item.titleEn),
+    description: pickLocalizedText(item.description, item.descriptionEn),
   }));
 
-  const rawReviewsTitle = pickLocalizedText(
-    locale,
-    homepageSettings.reviewsSectionTitle,
+  const rawReviewsTitle = pickLocalizedText(homepageSettings.reviewsSectionTitle,
     homepageSettings.reviewsSectionTitleEn,
   );
-  const rawReviewsSubtitle = pickLocalizedText(
-    locale,
-    homepageSettings.reviewsSectionSubtitle,
+  const rawReviewsSubtitle = pickLocalizedText(homepageSettings.reviewsSectionSubtitle,
     homepageSettings.reviewsSectionSubtitleEn,
   );
-  const reviewsTitle =
-    locale === "en" &&
-    (rawReviewsTitle === HOMEPAGE_DEFAULT_REVIEWS_SECTION_TITLE_AR || rawReviewsTitle === "")
-      ? t("home.reviewsTitleDefault", "What students say")
-      : rawReviewsTitle || t("home.reviewsTitleDefault", "What students say");
+  const reviewsTitle = rawReviewsTitle || t("home.reviewsTitleDefault", "ماذا يقول الطلاب");
   const reviewsSubtitle =
-    locale === "en" &&
-    (rawReviewsSubtitle === HOMEPAGE_DEFAULT_REVIEWS_SECTION_SUBTITLE_AR || rawReviewsSubtitle === "")
-      ? t("home.reviewsSubtitleDefault", "Real experiences from platform students")
-      : rawReviewsSubtitle || t("home.reviewsSubtitleDefault", "Real experiences from platform students");
+    rawReviewsSubtitle || t("home.reviewsSubtitleDefault", "تجارب حقيقية من طلاب المنصة");
 
-  const rawCtaBadge = pickLocalizedText(
-    locale,
-    homepageSettings.ctaBadgeText,
+  const rawCtaBadge = pickLocalizedText(homepageSettings.ctaBadgeText,
     homepageSettings.ctaBadgeTextEn,
   );
-  const rawCtaTitle = pickLocalizedText(locale, homepageSettings.ctaTitle, homepageSettings.ctaTitleEn);
-  const rawCtaDescription = pickLocalizedText(
-    locale,
-    homepageSettings.ctaDescription,
+  const rawCtaTitle = pickLocalizedText(homepageSettings.ctaTitle, homepageSettings.ctaTitleEn);
+  const rawCtaDescription = pickLocalizedText(homepageSettings.ctaDescription,
     homepageSettings.ctaDescriptionEn,
   );
-  const rawCtaButton = pickLocalizedText(
-    locale,
-    homepageSettings.ctaButtonText,
+  const rawCtaButton = pickLocalizedText(homepageSettings.ctaButtonText,
     homepageSettings.ctaButtonTextEn,
   );
-  const platformDetailsTitle = homepageDefaultForLocale(
-    locale,
-    pickLocalizedText(locale, homepageSettings.platformDetailsTitle, homepageSettings.platformDetailsTitleEn),
+  const platformDetailsTitle = homepageDefaultForLocale(pickLocalizedText(homepageSettings.platformDetailsTitle, homepageSettings.platformDetailsTitleEn),
     HOMEPAGE_DEFAULT_PLATFORM_DETAILS_TITLE_AR,
     "home.platformDetailsDefaultTitle",
     t,
     "Qalam, the ideal solution!",
   );
-  const platformDetailsSubtitle = homepageDefaultForLocale(
-    locale,
-    pickLocalizedText(locale, homepageSettings.platformDetailsSubtitle, homepageSettings.platformDetailsSubtitleEn),
+  const platformDetailsSubtitle = homepageDefaultForLocale(pickLocalizedText(homepageSettings.platformDetailsSubtitle, homepageSettings.platformDetailsSubtitleEn),
     HOMEPAGE_DEFAULT_PLATFORM_DETAILS_SUBTITLE_AR,
     "home.platformDetailsDefaultSubtitle",
     t,
     "Discover what makes the platform stand out",
   );
-  const storeSectionTitle = homepageDefaultForLocale(
-    locale,
-    pickLocalizedText(locale, homepageSettings.storeSectionTitle, homepageSettings.storeSectionTitleEn),
+  const storeSectionTitle = homepageDefaultForLocale(pickLocalizedText(homepageSettings.storeSectionTitle, homepageSettings.storeSectionTitleEn),
     HOMEPAGE_DEFAULT_STORE_SECTION_TITLE_AR,
     "home.storeSectionDefaultTitle",
     t,
     "Platform Store",
   );
-  const storeSectionDescription = homepageDefaultForLocale(
-    locale,
-    pickLocalizedText(
-      locale,
-      homepageSettings.storeSectionDescription,
+  const storeSectionDescription = homepageDefaultForLocale(pickLocalizedText(homepageSettings.storeSectionDescription,
       homepageSettings.storeSectionDescriptionEn,
     ),
     HOMEPAGE_DEFAULT_STORE_SECTION_DESCRIPTION_AR,
@@ -242,11 +215,7 @@ export async function HomePageBelowFold({
     t,
     "Welcome to the platform store with essential study materials and books. Choose what suits your needs and benefit from organized digital content that supports your learning journey.",
   );
-  const platformNewsTitle = homepageDefaultForLocale(
-    locale,
-    pickLocalizedText(
-      locale,
-      homepageSettings.platformNewsSectionTitle,
+  const platformNewsTitle = homepageDefaultForLocale(pickLocalizedText(homepageSettings.platformNewsSectionTitle,
       homepageSettings.platformNewsSectionTitleEn,
     ),
     HOMEPAGE_DEFAULT_PLATFORM_NEWS_TITLE_AR,
@@ -254,33 +223,25 @@ export async function HomePageBelowFold({
     t,
     "Platform News",
   );
-  const ctaBadge = homepageDefaultForLocale(
-    locale,
-    rawCtaBadge,
+  const ctaBadge = homepageDefaultForLocale(rawCtaBadge,
     HOMEPAGE_DEFAULT_CTA_BADGE_AR,
     "home.ctaBadgeDefault",
     t,
     "A stronger start to learning",
   );
-  const ctaTitle = homepageDefaultForLocale(
-    locale,
-    rawCtaTitle,
+  const ctaTitle = homepageDefaultForLocale(rawCtaTitle,
     HOMEPAGE_DEFAULT_CTA_TITLE_AR,
     "home.ctaTitleDefault",
     t,
     "Ready to turn your dream into a real result?",
   );
-  const ctaDescription = homepageDefaultForLocale(
-    locale,
-    rawCtaDescription,
+  const ctaDescription = homepageDefaultForLocale(rawCtaDescription,
     HOMEPAGE_DEFAULT_CTA_DESCRIPTION_AR,
     "home.ctaDescriptionDefault",
     t,
     "Start now with a confident step: organized content, clear explanations, and practical exercises that help you retain what you learn faster. Every lesson you complete today brings you closer to the level you deserve tomorrow.",
   );
-  const ctaButton = homepageDefaultForLocale(
-    locale,
-    rawCtaButton,
+  const ctaButton = homepageDefaultForLocale(rawCtaButton,
     HOMEPAGE_DEFAULT_CTA_BUTTON_AR,
     "home.ctaButtonDefault",
     t,
@@ -320,7 +281,7 @@ export async function HomePageBelowFold({
         ? sections.map((section, idx) => (
             <section
               key={section.slug ?? `uncategorized-${idx}`}
-              className="bg-white dark:bg-[var(--color-background)] mx-auto max-w-6xl px-4 py-16 sm:px-6"
+              className="bg-white mx-auto max-w-6xl px-4 py-16 sm:px-6"
             >
               <div className="flex items-end justify-between gap-4">
                 <div>
@@ -376,8 +337,8 @@ export async function HomePageBelowFold({
                 const authorName = r.authorName?.trim() ?? "";
                 const letter =
                   (r.avatarLetter && r.avatarLetter.trim()) || (authorName[0] ?? "");
-                const reviewText = pickLocalizedText(locale, r.text, r.textEn)?.trim() ?? "";
-                const reviewAuthorTitle = pickLocalizedText(locale, r.authorTitle, r.authorTitleEn)?.trim() ?? "";
+                const reviewText = pickLocalizedText(r.text, r.textEn)?.trim() ?? "";
+                const reviewAuthorTitle = pickLocalizedText(r.authorTitle, r.authorTitleEn)?.trim() ?? "";
                 const showAuthorBlock = !!(letter || authorName || reviewAuthorTitle);
                 const showText = !!reviewText;
                 const isImageOnly = !!r.imageUrl && !showAuthorBlock && !showText;
@@ -419,10 +380,10 @@ export async function HomePageBelowFold({
                       <div
                         className={
                           isImageOnly
-                            ? "flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-black/5 sm:min-h-[22rem] dark:bg-white/5"
+                            ? "flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-black/5 sm:min-h-[22rem]"
                             : showAuthorBlock || showText
-                              ? "mt-4 overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-black/5 p-2 dark:bg-white/5"
-                              : "overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-black/5 p-2 dark:bg-white/5"
+                              ? "mt-4 overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-black/5 p-2"
+                              : "overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-black/5 p-2"
                         }
                       >
                         <img
@@ -530,17 +491,13 @@ export async function HomePageBelowFold({
           "pointer-events-none hidden select-none rounded-full bg-black/50 px-3 py-1 text-xs font-semibold tracking-wide text-white/95 shadow-sm md:inline-flex md:translate-x-0 md:opacity-100 group-hover:inline-flex group-hover:opacity-100 group-focus-visible:inline-flex";
 
         const verticalPositions = ["bottom-6", "bottom-24", "bottom-42", "bottom-60", "bottom-78"] as const;
-        const rightLabelWord = homepageDefaultForLocale(
-          locale,
-          pickLocalizedText(locale, homepageSettings.socialRightLabel, homepageSettings.socialRightLabelEn),
+        const rightLabelWord = homepageDefaultForLocale(pickLocalizedText(homepageSettings.socialRightLabel, homepageSettings.socialRightLabelEn),
           HOMEPAGE_DEFAULT_SOCIAL_RIGHT_LABEL_AR,
           "home.socialRightDefaultLabel",
           t,
           "Support",
         );
-        const leftLabelWord = homepageDefaultForLocale(
-          locale,
-          pickLocalizedText(locale, homepageSettings.socialLeftLabel, homepageSettings.socialLeftLabelEn),
+        const leftLabelWord = homepageDefaultForLocale(pickLocalizedText(homepageSettings.socialLeftLabel, homepageSettings.socialLeftLabelEn),
           HOMEPAGE_DEFAULT_SOCIAL_LEFT_LABEL_AR,
           "home.socialLeftDefaultLabel",
           t,

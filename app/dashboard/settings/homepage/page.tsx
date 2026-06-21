@@ -38,7 +38,7 @@ export default async function DashboardHomepageSettingsPage() {
       <p className="mt-1 text-sm text-[var(--color-muted)]">
         {t(
           "dashboard.homepageSettingsDescription",
-          "Update homepage visuals and text in both Arabic and English.",
+          "Update homepage visuals and text.",
         )}
       </p>
       <HomepageSettingsForm initialSettings={settings} publishedCourses={publishedCourses} />

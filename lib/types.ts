@@ -308,6 +308,33 @@ export interface Course {
   updated_at: Date;
 }
 
+/** طلب طالب لدورة غير متاحة على المنصة */
+export interface CourseRequest {
+  id: string;
+  user_id: string;
+  student_name: string;
+  student_email: string;
+  student_phone: string | null;
+  student_whatsapp: string | null;
+  course_title: string;
+  course_subject: string | null;
+  course_description: string;
+  additional_notes: string | null;
+  status: "pending" | "reviewed";
+  reviewed_at: Date | null;
+  reviewed_by_id: string | null;
+  created_at: Date;
+}
+
+export interface CourseRequestAttachment {
+  id: string;
+  request_id: string;
+  file_url: string;
+  file_name: string | null;
+  file_type: "pdf" | "image";
+  created_at: Date;
+}
+
 /** تسليم واجب من طالب (لحصة أو للكورس قديماً) */
 export interface HomeworkSubmission {
   id: string;
@@ -328,8 +355,41 @@ export interface LessonRating {
   user_id: string;
   course_id: string;
   rating: number;
+  feedback?: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+/** تقييم عام للدورة من الطالب */
+export interface CourseRating {
+  id: string;
+  course_id: string;
+  user_id: string;
+  rating: number;
+  feedback?: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** طلب طالب لشرح محتوى جديد داخل دورة */
+export interface CourseContentRequest {
+  id: string;
+  course_id: string;
+  user_id: string;
+  description: string;
+  status: "pending" | "reviewed";
+  reviewed_at: Date | null;
+  reviewed_by_id: string | null;
+  created_at: Date;
+}
+
+export interface CourseContentRequestAttachment {
+  id: string;
+  request_id: string;
+  file_url: string;
+  file_name: string | null;
+  file_type: "pdf" | "image";
+  created_at: Date;
 }
 
 export interface Lesson {
@@ -494,4 +554,38 @@ export interface Message {
   fileUrl: string | null;
   fileName: string | null;
   createdAt: Date;
+}
+
+/** رسالة في محادثة جماعية للدورة */
+export interface CourseGroupMessage {
+  id: string;
+  course_id: string;
+  sender_id: string;
+  message_type: "text" | "image" | "file";
+  content: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  created_at: Date;
+}
+
+/** محادثة خاصة بين طالب ومنشئ الدورة */
+export interface CoursePrivateConversation {
+  id: string;
+  course_id: string;
+  staff_user_id: string;
+  student_user_id: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** رسالة في محادثة خاصة للدورة */
+export interface CoursePrivateMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  message_type: "text" | "image" | "file";
+  content: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  created_at: Date;
 }

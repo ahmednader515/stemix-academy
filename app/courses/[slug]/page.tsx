@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { unstable_noStore } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
@@ -16,14 +15,16 @@ import {
   getLatestPlatformSubscriptionExpiry,
 } from "@/lib/db";
 import { EnrollButton } from "./EnrollButton";
-import { getLocaleFromCookie, getServerTranslator } from "@/lib/i18n/server";
+import { CourseChatSection } from "@/components/course-chat/CourseChatSection";
+import { CourseRatingSection } from "@/components/course-rating/CourseRatingSection";
+import { CourseContentRequestSection } from "@/components/course-content-request/CourseContentRequestSection";
+import { getServerTranslator } from "@/lib/i18n/server";
 import { pickLocalizedText } from "@/lib/i18n/localized-field";
 
 type Props = { params: Promise<{ slug: string }> };
 
-/** عدم التخزين المؤقت — دائماً التحقق من وجود الدورة (تجنب 404 للدورات المحذوفة) */
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+/** ISR — بيانات الدورة تُخزَّن مؤقتاً 60 ثانية؛ التحقق من الوصول يبقى لحظياً */
+export const revalidate = 60;
 
 function isCourseId(segment: string): boolean {
   return /^c[a-z0-9]{24}$/i.test(segment);
@@ -44,21 +45,16 @@ function normalizeSlugForUrl(s: string | null | undefined): string {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const [t, locale] = await Promise.all([getServerTranslator(), getLocaleFromCookie()]);
+  const t = await getServerTranslator();
   const { slug: segment } = await params;
-  unstable_noStore();
   const decoded = decodeSlug(segment);
   const data = await getCourseWithContent(decoded);
   const course = data?.course;
   if (!course) return { title: t("courses.notFoundCourse", "Course not found") };
-  const courseTitle = pickLocalizedText(
-    locale,
-    (course as { titleAr?: string | null; title?: string | null }).titleAr ?? null,
+  const courseTitle = pickLocalizedText((course as { titleAr?: string | null; title?: string | null }).titleAr ?? null,
     (course as { title?: string | null }).title ?? null,
   );
-  const courseDescription = pickLocalizedText(
-    locale,
-    (course as { shortDesc?: string | null; description?: string | null }).shortDesc ??
+  const courseDescription = pickLocalizedText((course as { shortDesc?: string | null; description?: string | null }).shortDesc ??
       (course as { description?: string | null }).description ??
       null,
     (course as { shortDescEn?: string | null; short_desc_en?: string | null }).shortDescEn ??
@@ -72,9 +68,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function CoursePage({ params }: Props) {
-  unstable_noStore();
   const t = await getServerTranslator();
-  const locale = await getLocaleFromCookie();
   const { slug: segment } = await params;
   const decoded = decodeSlug(segment);
   const session = await getServerSession(authOptions);
@@ -119,19 +113,13 @@ export default async function CoursePage({ params }: Props) {
     lessons: data.lessons,
     quizzes: data.quizzes,
   };
-  const title = pickLocalizedText(
-    locale,
-    (course as { titleAr?: string | null; title?: string | null }).titleAr ?? null,
+  const title = pickLocalizedText((course as { titleAr?: string | null; title?: string | null }).titleAr ?? null,
     (course as { title?: string | null }).title ?? null,
   );
-  const categoryName = pickLocalizedText(
-    locale,
-    (course.category as { nameAr?: string | null; name?: string | null })?.nameAr ?? null,
+  const categoryName = pickLocalizedText((course.category as { nameAr?: string | null; name?: string | null })?.nameAr ?? null,
     (course.category as { name?: string | null })?.name ?? null,
   );
-  const courseDescription = pickLocalizedText(
-    locale,
-    (course as { description?: string | null }).description ?? null,
+  const courseDescription = pickLocalizedText((course as { description?: string | null }).description ?? null,
     (course as { descriptionEn?: string | null; description_en?: string | null }).descriptionEn ??
       (course as { description_en?: string | null }).description_en ??
       null,
@@ -149,10 +137,14 @@ export default async function CoursePage({ params }: Props) {
   const homepageSettings = await getHomepageSettings();
   const formatStreamDate = (d: Date | string) => {
     const date = typeof d === "string" ? new Date(d) : d;
-    return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    return new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(date);
   };
 
   const isGuest = !session;
+  const createdById =
+    (course as { createdById?: string | null; created_by_id?: string | null }).createdById ??
+    (course as { created_by_id?: string | null }).created_by_id ??
+    null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -193,7 +185,7 @@ export default async function CoursePage({ params }: Props) {
               <div className="relative mb-4">
                 <img
                   src={homepageSettings.teacherImageUrl?.trim() || "/instructor.png"}
-                  alt={pickLocalizedText(locale, homepageSettings.heroTitle, homepageSettings.heroTitleEn) || "المدرس"}
+                  alt={pickLocalizedText(homepageSettings.heroTitle, homepageSettings.heroTitleEn) || "المدرس"}
                   className="h-32 w-32 border-2 border-black border-dotted object-cover"
                 />
                 <div className="absolute bottom-0 right-0 h-6 w-6 rounded-full border-4 border-[var(--color-surface)] bg-[var(--color-success)]" />
@@ -218,7 +210,7 @@ export default async function CoursePage({ params }: Props) {
               </div>
               <div className="mt-2 w-full border-t border-[var(--color-border)] pt-4">
                 <p className="text-sm text-[var(--color-muted)]">
-                  {pickLocalizedText(locale, homepageSettings.heroSlogan, homepageSettings.heroSloganEn) ||
+                  {pickLocalizedText(homepageSettings.heroSlogan, homepageSettings.heroSloganEn) ||
                     t("courses.allCoursesSubtitle", "Choose the right course and start learning step by step")}
                 </p>
               </div>
@@ -319,14 +311,14 @@ export default async function CoursePage({ params }: Props) {
             )}
 
             {paidCourseCoveredBySubscription && subscriptionExpiresAt && (
-              <p className="mt-4 rounded-[var(--radius-btn)] border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-sm text-teal-900 dark:text-teal-100">
+              <p className="mt-4 rounded-[var(--radius-btn)] border border-teal-500/40 bg-teal-500/10 px-4 py-2 text-sm text-teal-900">
                 {t("courses.viaPlatformSubscription", "You are viewing this course through platform subscription until")}{" "}
-                {new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(subscriptionExpiresAt)}.
+                {new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(subscriptionExpiresAt)}.
               </p>
             )}
 
             {hasPartialAccess && !isEnrolled && !hasFullStudentAccess && (
-              <div className="mt-6 rounded-[var(--radius-card)] border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              <div className="mt-6 rounded-[var(--radius-card)] border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800">
                 {t("courses.partialAccessInfo", "This course is available to you through a code that unlocks specific lessons/quizzes.")}
               </div>
             )}
@@ -421,6 +413,26 @@ export default async function CoursePage({ params }: Props) {
         </div>
         </article>
       </div>
+
+      {canAccessContent && session?.user?.id && session.user.role === "STUDENT" ? (
+        <>
+          <CourseRatingSection courseId={course.id} />
+          <CourseContentRequestSection courseId={course.id} courseTitle={title} />
+          <CourseChatSection
+            courseId={course.id}
+            courseTitle={title}
+            createdById={createdById}
+            session={session}
+          />
+        </>
+      ) : canAccessContent && session?.user?.id ? (
+        <CourseChatSection
+          courseId={course.id}
+          courseTitle={title}
+          createdById={createdById}
+          session={session}
+        />
+      ) : null}
     </div>
   );
 }

@@ -85,7 +85,7 @@ export function LiveStreamsList({ streams }: { streams: StreamRow[] }) {
                   type="button"
                   onClick={() => handleDelete(s.id)}
                   disabled={deletingId === s.id}
-                  className="text-red-600 hover:underline disabled:opacity-50 dark:text-red-400"
+                  className="text-red-600 hover:underline disabled:opacity-50"
                 >
                   {deletingId === s.id ? t(`${L}.deleting`) : t(`${L}.delete`)}
                 </button>

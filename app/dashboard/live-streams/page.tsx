@@ -32,11 +32,11 @@ export default async function DashboardLiveStreamsPage() {
               {t(`${P}.title`)}
             </h2>
           </div>
-          <div className="rounded-[var(--radius-card)] border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-900/20">
-            <h3 className="font-semibold text-amber-800 dark:text-amber-200">
+          <div className="rounded-[var(--radius-card)] border border-amber-200 bg-amber-50 p-6">
+            <h3 className="font-semibold text-amber-800">
               {t(`${P}.dbMissingTitle`)}
             </h3>
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+            <p className="mt-2 text-sm text-amber-700">
               {t(`${P}.dbMissingHint`)}
             </p>
             <pre className="mt-4 overflow-x-auto rounded bg-black/10 p-4 text-left text-xs">
@@ -58,7 +58,7 @@ export default async function DashboardLiveStreamsPage() {
 CREATE INDEX IF NOT EXISTS "LiveStream_course_id_idx" ON "LiveStream"(course_id);
 CREATE INDEX IF NOT EXISTS "LiveStream_scheduled_at_idx" ON "LiveStream"(scheduled_at);`}
             </pre>
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+            <p className="mt-2 text-sm text-amber-700">
               {t(`${P}.dbMissingRefresh`)}
             </p>
           </div>

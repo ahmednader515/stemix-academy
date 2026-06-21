@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getCourseWithContent, getEnrollment, hasFullCourseAccessAsStudent } from "@/lib/db";
 import { CourseOutlineSidebar } from "@/components/CourseOutlineSidebar";
+import { CourseChatSection } from "@/components/course-chat/CourseChatSection";
 import { QuizPageClient } from "./QuizPageClient";
 
 type Props = { params: Promise<{ slug: string; quizId: string }> };
@@ -76,11 +77,26 @@ export default async function QuizPage({ params }: Props) {
   const prevItem = currentIndex > 0 ? items[currentIndex - 1] : null;
   const nextItem = currentIndex >= 0 && currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
 
+  const createdById =
+    (course.createdById as string | null | undefined) ??
+    (course.created_by_id as string | null | undefined) ??
+    null;
+  const courseTitle = String(course.title ?? course.title_ar ?? "");
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[1fr_200px]">
         <article className="min-w-0 lg:col-start-1 lg:row-start-1">
           <QuizPageClient quizId={quizId} />
+
+          {session?.user?.id ? (
+            <CourseChatSection
+              courseId={course.id}
+              courseTitle={courseTitle}
+              createdById={createdById}
+              session={session}
+            />
+          ) : null}
 
           {/* أزرار السابق والتالي أسفل الاختبار */}
           <nav className="mx-auto mt-8 flex w-full max-w-3xl items-center justify-between gap-4 border-t border-[var(--color-border)] px-4 pt-6 sm:px-6">

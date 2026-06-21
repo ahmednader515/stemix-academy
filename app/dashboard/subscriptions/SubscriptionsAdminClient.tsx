@@ -277,7 +277,7 @@ export function SubscriptionsAdminClient({
       </div>
 
       {error ? (
-        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</div>
+        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">{error}</div>
       ) : null}
       {success ? (
         <div className="rounded-[var(--radius-btn)] bg-[var(--color-primary)]/10 px-3 py-2 text-sm text-[var(--color-primary)]">{success}</div>
@@ -339,7 +339,7 @@ export function SubscriptionsAdminClient({
                     setImageUrl("");
                     setImageError("");
                   }}
-                  className="text-sm text-red-600 hover:underline dark:text-red-400"
+                  className="text-sm text-red-600 hover:underline"
                 >
                   {t(`${Su}.removeImage`)}
                 </button>
@@ -359,7 +359,7 @@ export function SubscriptionsAdminClient({
                 }}
               />
             </label>
-            {imageError ? <p className="mt-1 text-sm text-red-600 dark:text-red-400">{imageError}</p> : null}
+            {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
           </div>
           <button
             type="submit"
@@ -427,7 +427,7 @@ export function SubscriptionsAdminClient({
                         <button
                           type="button"
                           onClick={() => void removePlan(row)}
-                          className="rounded-[var(--radius-btn)] border border-red-500/40 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                          className="rounded-[var(--radius-btn)] border border-red-500/40 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10"
                         >
                           {t(`${Su}.delete`)}
                         </button>
@@ -524,7 +524,7 @@ export function SubscriptionsAdminClient({
                         setEditImageUrl("");
                         setEditImageError("");
                       }}
-                      className="text-sm text-red-600 hover:underline dark:text-red-400"
+                      className="text-sm text-red-600 hover:underline"
                     >
                       {t(`${Su}.removeImage`)}
                     </button>
@@ -544,7 +544,7 @@ export function SubscriptionsAdminClient({
                     }}
                   />
                 </label>
-                {editImageError ? <p className="mt-1 text-sm text-red-600 dark:text-red-400">{editImageError}</p> : null}
+                {editImageError ? <p className="mt-1 text-sm text-red-600">{editImageError}</p> : null}
               </div>
               <div className="flex flex-wrap gap-2 pt-2">
                 <button

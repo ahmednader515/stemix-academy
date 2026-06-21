@@ -64,7 +64,7 @@ export async function POST(
     const allowed = await canAccessLesson(session.user.id, session.user.role, lesson.id, lesson.course_id);
     if (!allowed) return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
 
-    let body: { rating?: unknown };
+    let body: { rating?: unknown; feedback?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -76,11 +76,21 @@ export async function POST(
       return NextResponse.json({ error: "التقييم يجب أن يكون من 1 إلى 5" }, { status: 400 });
     }
 
+    let feedback: string | null | undefined;
+    if (body.feedback !== undefined && body.feedback !== null) {
+      const trimmed = String(body.feedback).trim();
+      if (trimmed.length > 2000) {
+        return NextResponse.json({ error: "الملاحظة طويلة جداً" }, { status: 400 });
+      }
+      feedback = trimmed || null;
+    }
+
     await upsertLessonRating({
       lesson_id: lesson.id,
       course_id: lesson.course_id,
       user_id: session.user.id,
       rating: rating as 1 | 2 | 3 | 4 | 5,
+      feedback,
     });
 
     const summary = await getLessonRatingSummary(lesson.id, session.user.id);

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-const DEFAULT_BASE_COLOR = new THREE.Vector3(0.176, 0.831, 0.749); // #2dd4bf (dark default)
+const DEFAULT_BASE_COLOR = new THREE.Vector3(0.055, 0.647, 0.914); // #0ea5e9
 
 function readPrimaryColorVector3(): THREE.Vector3 {
   if (typeof document === "undefined") return DEFAULT_BASE_COLOR.clone();
@@ -184,16 +184,6 @@ export default function LoginBackground() {
       window.addEventListener("resize", onWindowResize);
     }
 
-    function syncThemeColor() {
-      uniforms.baseColor.value.copy(readPrimaryColorVector3());
-    }
-
-    const themeObserver = new MutationObserver(syncThemeColor);
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "style"],
-    });
-
     function onMouseMove(event: MouseEvent) {
       targetMouse.x = event.clientX / window.innerWidth;
       targetMouse.y = 1.0 - event.clientY / window.innerHeight;
@@ -229,7 +219,6 @@ export default function LoginBackground() {
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      themeObserver.disconnect();
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("resize", onWindowResize);

@@ -11,6 +11,11 @@ import type {
   Enrollment,
   ActivationCode,
   HomeworkSubmission,
+  CourseRequest,
+  CourseRequestAttachment,
+  CourseRating,
+  CourseContentRequest,
+  CourseContentRequestAttachment,
   LessonRating,
   Lesson,
   Quiz,
@@ -20,6 +25,9 @@ import type {
   LiveStreamProvider,
   Conversation,
   Message,
+  CourseGroupMessage,
+  CoursePrivateConversation,
+  CoursePrivateMessage,
   SubscriptionDurationKind,
   PlatformDetailsItem,
 } from "./types";
@@ -562,11 +570,13 @@ async function ensureCategoryCreatedByColumn(): Promise<void> {
   }
 }
 
-export async function getCategories(): Promise<Category[]> {
+async function getCategoriesUncached(): Promise<Category[]> {
   await ensureCategoryCreatedByColumn();
   const rows = await sql`SELECT * FROM "Category" ORDER BY "order" ASC`;
   return rowsToCamel(rows as Record<string, unknown>[]) as Category[];
 }
+
+export const getCategories = cache(getCategoriesUncached);
 
 /** أقسام تظهر في لوحة إنشاء/تعديل الدورة: المدرس يرى أقسامه فقط؛ الأدمن يرى أقسام المنصة وأقسام أي أدمن/مساعد */
 export async function getCategoriesForDashboard(userId: string, role: UserRole): Promise<Category[]> {
@@ -745,12 +755,14 @@ async function ensureReviewBilingualColumns(): Promise<void> {
   });
 }
 
-export async function getReviews(): Promise<Review[]> {
+async function getReviewsUncached(): Promise<Review[]> {
   await ensureReviewImageUrlColumn();
   await ensureReviewBilingualColumns();
   const rows = await sql`SELECT * FROM "Review" ORDER BY "order" ASC, created_at DESC`;
   return rowsToCamel(rows as Record<string, unknown>[]) as Review[];
 }
+
+export const getReviews = cache(getReviewsUncached);
 
 export async function getReviewById(id: string): Promise<Review | null> {
   await ensureReviewImageUrlColumn();
@@ -1333,7 +1345,7 @@ export async function setTeacherHomepageFeaturedSlots(orderedIds: string[]): Pro
 }
 
 /** كل حسابات المدرسين — للصفحة الرئيسية (حتى من دون كورس منشور) + دوراته المنشورة داخل البطاقة */
-export async function listTeachersForHomepage(): Promise<TeacherHomepageRow[]> {
+async function listTeachersForHomepageUncached(): Promise<TeacherHomepageRow[]> {
   try {
     await ensureTeacherHomepageOrderColumn().catch(() => {});
     const rows = await sql`
@@ -1393,6 +1405,8 @@ export async function listTeachersForHomepage(): Promise<TeacherHomepageRow[]> {
     return [];
   }
 }
+
+export const listTeachersForHomepage = cache(listTeachersForHomepageUncached);
 
 /**
  * عند تفعيل «تعدد المدرسين»: معرفات حسابات TEACHER التي يُستبعد دوراتها من القوائم العامة
@@ -2926,7 +2940,7 @@ function addSubscriptionDuration(from: Date, kind: SubscriptionDurationKind): Da
   return d;
 }
 
-export async function listActiveSubscriptionPlansPublic(): Promise<SubscriptionPlanPublic[]> {
+async function listActiveSubscriptionPlansPublicUncached(): Promise<SubscriptionPlanPublic[]> {
   try {
     await ensurePlatformSubscriptionSchema();
     const rows = await sql`
@@ -2947,6 +2961,8 @@ export async function listActiveSubscriptionPlansPublic(): Promise<SubscriptionP
     return [];
   }
 }
+
+export const listActiveSubscriptionPlansPublic = cache(listActiveSubscriptionPlansPublicUncached);
 
 export async function listSubscriptionPlansAll(): Promise<SubscriptionPlanAdmin[]> {
   await ensurePlatformSubscriptionSchema();
@@ -3224,6 +3240,7 @@ async function ensureLessonRatingsSchema(): Promise<void> {
       await sql`CREATE INDEX IF NOT EXISTS "LessonRating_lesson_id_idx" ON "LessonRating"(lesson_id)`;
       await sql`CREATE INDEX IF NOT EXISTS "LessonRating_course_id_idx" ON "LessonRating"(course_id)`;
       await sql`CREATE INDEX IF NOT EXISTS "LessonRating_user_id_idx" ON "LessonRating"(user_id)`;
+      await sql`ALTER TABLE "LessonRating" ADD COLUMN IF NOT EXISTS feedback TEXT`;
       lessonRatingsSchemaAvailable = true;
     } catch {
       try {
@@ -3300,7 +3317,11 @@ export async function getCourseBySlugOrId(slugOrId: string): Promise<Course | nu
   return rowToCamel(rows[0] as Record<string, unknown>) as Course | null;
 }
 
-export async function getCoursesPublished(withCategory = true): Promise<(Course & { category?: Category })[]> {
+export const getCoursesPublished = cache(async (withCategory = true): Promise<(Course & { category?: Category })[]> => {
+  return getCoursesPublishedUncached(withCategory);
+});
+
+async function getCoursesPublishedUncached(withCategory: boolean): Promise<(Course & { category?: Category })[]> {
   await ensureLessonRatingsSchema();
   if (!withCategory) {
     const rows = await sql`
@@ -3312,8 +3333,11 @@ export async function getCoursesPublished(withCategory = true): Promise<(Course 
     return rowsToCamel(rows as Record<string, unknown>[]) as (Course & { category?: Category })[];
   }
   const rows = await sql`
-    SELECT c.*, ${courseRatingSelectSql()}, cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug
+    SELECT c.*, ${courseRatingSelectSql()},
+      creator.name as creator_name,
+      cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug
     FROM "Course" c
+    LEFT JOIN "User" creator ON c.created_by_id = creator.id
     LEFT JOIN "Category" cat ON c.category_id = cat.id
     WHERE c.is_published = true
     ORDER BY c."order" ASC, c.created_at DESC
@@ -3322,10 +3346,12 @@ export async function getCoursesPublished(withCategory = true): Promise<(Course 
     const category = r.cat_id
       ? rowToCamel({ id: r.cat_id, name: r.cat_name, name_ar: r.cat_name_ar, slug: r.cat_slug })
       : null;
-    const { cat_id, cat_name, cat_name_ar, cat_slug, ...rest } = r;
+    const { cat_id, cat_name, cat_name_ar, cat_slug, creator_name, ...rest } = r;
     const base = rowToCamel(rest) ?? {};
-    return { ...base, category };
-  }) as unknown as (Course & { category?: Category })[];
+    const creatorName =
+      creator_name != null && String(creator_name).trim() !== "" ? String(creator_name).trim() : null;
+    return { ...base, category, creatorName };
+  }) as unknown as (Course & { category?: Category; creatorName?: string | null })[];
 }
 
 /** يعيد خريطة معرف كورس → slug للكورسات المنشورة فقط (لروابط السلايدر في الصفحة الرئيسية). */
@@ -3333,13 +3359,11 @@ export async function getPublishedCourseSlugsByIds(ids: string[]): Promise<Map<s
   const uniq = [...new Set(ids.map((id) => String(id).trim()).filter(Boolean))];
   const map = new Map<string, string>();
   if (uniq.length === 0) return map;
-  const results = await Promise.all(
-    uniq.map((id) =>
-      sql`SELECT id, slug FROM "Course" WHERE id = ${id} AND is_published = true LIMIT 1`,
-    ),
-  );
-  for (const rows of results) {
-    const r = rows[0] as { id?: unknown; slug?: unknown } | undefined;
+  const rows = await sql`
+    SELECT id, slug FROM "Course"
+    WHERE id = ANY(${uniq}::text[]) AND is_published = true
+  `;
+  for (const r of rows as { id?: unknown; slug?: unknown }[]) {
     if (r?.id != null && r?.slug != null) {
       map.set(String(r.id), String(r.slug));
     }
@@ -3621,7 +3645,7 @@ export async function deleteLessonsByCourseId(courseId: string): Promise<void> {
 }
 
 /** جلب كورس مع الحصص والاختبارات (عدد أسئلة كل اختبار) — للصفحة التفصيلية */
-export async function getCourseWithContent(segment: string): Promise<{
+async function getCourseWithContentUncached(segment: string): Promise<{
   course: (Course & { category?: Record<string, unknown> }) | null;
   lessons: Record<string, unknown>[];
   quizzes: Array<Record<string, unknown> & { _count: { questions: number } }>;
@@ -3662,6 +3686,8 @@ export async function getCourseWithContent(segment: string): Promise<{
     quizzes,
   };
 }
+
+export const getCourseWithContent = cache(getCourseWithContentUncached);
 
 /** جلب دورة كاملة مع حصص واختبارات (أسئلة + خيارات) — لصفحة التعديل */
 export async function getCourseForEdit(courseId: string): Promise<{
@@ -4071,6 +4097,7 @@ export type LessonRatingSummary = {
   courseAverageRating: number | null;
   courseRatingCount: number;
   userRating: number | null;
+  userFeedback: string | null;
 };
 
 export async function getLessonRatingSummary(
@@ -4089,6 +4116,7 @@ export async function getLessonRatingSummary(
       courseAverageRating: null,
       courseRatingCount: 0,
       userRating: null,
+      userFeedback: null,
     };
   }
   const rows = await sql`
@@ -4114,7 +4142,13 @@ export async function getLessonRatingSummary(
         FROM "LessonRating" r
         WHERE r.lesson_id = l.id AND r.user_id = ${userId ?? null}
         LIMIT 1
-      ) AS user_rating
+      ) AS user_rating,
+      (
+        SELECT r.feedback
+        FROM "LessonRating" r
+        WHERE r.lesson_id = l.id AND r.user_id = ${userId ?? null}
+        LIMIT 1
+      ) AS user_feedback
     FROM "Lesson" l
     WHERE l.id = ${lessonId}
     LIMIT 1
@@ -4128,6 +4162,7 @@ export async function getLessonRatingSummary(
         course_avg_rating?: number | null;
         course_rating_count?: number | null;
         user_rating?: number | null;
+        user_feedback?: string | null;
       }
     | undefined;
   if (!row?.lesson_id || !row.course_id) return null;
@@ -4145,7 +4180,104 @@ export async function getLessonRatingSummary(
         : Number(row.course_avg_rating),
     courseRatingCount: Number(row.course_rating_count ?? 0),
     userRating: row.user_rating == null ? null : Number(row.user_rating),
+    userFeedback: row.user_feedback != null ? String(row.user_feedback) : null,
   };
+}
+
+export type CourseRatingSummary = {
+  courseId: string;
+  averageRating: number | null;
+  ratingCount: number;
+  userRating: number | null;
+  userFeedback: string | null;
+};
+
+export async function getCourseRatingSummary(
+  courseId: string,
+  userId?: string | null,
+): Promise<CourseRatingSummary | null> {
+  await ensureCourseRatingSchema();
+  const rows = await sql`
+    SELECT
+      c.id AS course_id,
+      (SELECT AVG(r.rating)::float8 FROM "CourseRating" r WHERE r.course_id = c.id) AS avg_rating,
+      (SELECT COUNT(*)::int FROM "CourseRating" r WHERE r.course_id = c.id) AS rating_count,
+      (
+        SELECT r.rating::int FROM "CourseRating" r
+        WHERE r.course_id = c.id AND r.user_id = ${userId ?? null}
+        LIMIT 1
+      ) AS user_rating,
+      (
+        SELECT r.feedback FROM "CourseRating" r
+        WHERE r.course_id = c.id AND r.user_id = ${userId ?? null}
+        LIMIT 1
+      ) AS user_feedback
+    FROM "Course" c
+    WHERE c.id = ${courseId}
+    LIMIT 1
+  `;
+  const row = rows[0] as
+    | {
+        course_id?: string;
+        avg_rating?: number | null;
+        rating_count?: number | null;
+        user_rating?: number | null;
+        user_feedback?: string | null;
+      }
+    | undefined;
+  if (!row?.course_id) return null;
+  return {
+    courseId: String(row.course_id),
+    averageRating:
+      row.avg_rating == null || Number.isNaN(Number(row.avg_rating))
+        ? null
+        : Number(row.avg_rating),
+    ratingCount: Number(row.rating_count ?? 0),
+    userRating: row.user_rating == null ? null : Number(row.user_rating),
+    userFeedback: row.user_feedback != null ? String(row.user_feedback) : null,
+  };
+}
+
+export async function upsertCourseRating(data: {
+  course_id: string;
+  user_id: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  feedback?: string | null;
+}): Promise<CourseRating> {
+  await ensureCourseRatingSchema();
+  const existingRows = await sql`
+    SELECT id FROM "CourseRating" WHERE course_id = ${data.course_id} AND user_id = ${data.user_id} LIMIT 1
+  `;
+  const existingId = (existingRows[0] as { id?: string } | undefined)?.id;
+  const id = existingId ?? generateId();
+  const feedback =
+    data.feedback !== undefined ? (data.feedback?.trim() ? data.feedback.trim() : null) : undefined;
+
+  let rows;
+  if (existingId) {
+    if (feedback !== undefined) {
+      rows = await sql`
+        UPDATE "CourseRating"
+        SET rating = ${data.rating}, feedback = ${feedback}, updated_at = NOW()
+        WHERE id = ${existingId}
+        RETURNING *
+      `;
+    } else {
+      rows = await sql`
+        UPDATE "CourseRating"
+        SET rating = ${data.rating}, updated_at = NOW()
+        WHERE id = ${existingId}
+        RETURNING *
+      `;
+    }
+  } else {
+    rows = await sql`
+      INSERT INTO "CourseRating" (id, course_id, user_id, rating, feedback, created_at, updated_at)
+      VALUES (${id}, ${data.course_id}, ${data.user_id}, ${data.rating}, ${feedback ?? null}, NOW(), NOW())
+      RETURNING *
+    `;
+  }
+  return rowToCamel(rows[0] as Record<string, unknown>) as CourseRating;
 }
 
 export async function upsertLessonRating(data: {
@@ -4153,6 +4285,7 @@ export async function upsertLessonRating(data: {
   user_id: string;
   course_id: string;
   rating: 1 | 2 | 3 | 4 | 5;
+  feedback?: string | null;
 }): Promise<LessonRating> {
   await ensureLessonRatingsSchema();
   if (!lessonRatingsSchemaAvailable) {
@@ -4163,15 +4296,33 @@ export async function upsertLessonRating(data: {
   `;
   const existingId = (existingRows[0] as { id?: string } | undefined)?.id;
   const id = existingId ?? generateId();
-  const rows = await sql`
-    INSERT INTO "LessonRating" (id, lesson_id, user_id, course_id, rating, created_at, updated_at)
-    VALUES (${id}, ${data.lesson_id}, ${data.user_id}, ${data.course_id}, ${data.rating}, NOW(), NOW())
-    ON CONFLICT (lesson_id, user_id) DO UPDATE SET
-      rating = EXCLUDED.rating,
-      course_id = EXCLUDED.course_id,
-      updated_at = NOW()
-    RETURNING *
-  `;
+  const feedback =
+    data.feedback !== undefined ? (data.feedback?.trim() ? data.feedback.trim() : null) : undefined;
+
+  let rows;
+  if (existingId) {
+    if (feedback !== undefined) {
+      rows = await sql`
+        UPDATE "LessonRating"
+        SET rating = ${data.rating}, feedback = ${feedback}, course_id = ${data.course_id}, updated_at = NOW()
+        WHERE id = ${existingId}
+        RETURNING *
+      `;
+    } else {
+      rows = await sql`
+        UPDATE "LessonRating"
+        SET rating = ${data.rating}, course_id = ${data.course_id}, updated_at = NOW()
+        WHERE id = ${existingId}
+        RETURNING *
+      `;
+    }
+  } else {
+    rows = await sql`
+      INSERT INTO "LessonRating" (id, lesson_id, user_id, course_id, rating, feedback, created_at, updated_at)
+      VALUES (${id}, ${data.lesson_id}, ${data.user_id}, ${data.course_id}, ${data.rating}, ${feedback ?? null}, NOW(), NOW())
+      RETURNING *
+    `;
+  }
   return rowToCamel(rows[0] as Record<string, unknown>) as LessonRating;
 }
 
@@ -4765,6 +4916,42 @@ export async function getEnrollmentsWithCourseByUserId(userId: string): Promise<
   })) as Array<Enrollment & { course: { id: string; title: string; titleAr: string | null; slug: string } }>;
 }
 
+/** كل التسجيلات مع بيانات الدورة — استعلام واحد بدل N+1 في لوحة الطلاب */
+export async function getAllEnrollmentsWithCourseGroupedByUser(): Promise<
+  Map<string, Array<Enrollment & { course: { id: string; title: string; titleAr: string | null; slug: string } }>>
+> {
+  const rows = await sql`
+    SELECT e.*, c.id as c_id, c.title as c_title, c.title_ar as c_title_ar, c.slug as c_slug
+    FROM "Enrollment" e
+    JOIN "Course" c ON c.id = e.course_id
+    ORDER BY e.enrolled_at DESC
+  `;
+  const map = new Map<
+    string,
+    Array<Enrollment & { course: { id: string; title: string; titleAr: string | null; slug: string } }>
+  >();
+  for (const r of rows as Record<string, unknown>[]) {
+    const userId = String(r.user_id ?? "");
+    if (!userId) continue;
+    const item = {
+      id: r.id,
+      user_id: r.user_id,
+      course_id: r.course_id,
+      enrolled_at: r.enrolled_at,
+      course: {
+        id: r.c_id,
+        title: r.c_title,
+        titleAr: r.c_title_ar,
+        slug: r.c_slug,
+      },
+    } as Enrollment & { course: { id: string; title: string; titleAr: string | null; slug: string } };
+    const list = map.get(userId);
+    if (list) list.push(item);
+    else map.set(userId, [item]);
+  }
+  return map;
+}
+
 /** دورات الطالب المسجّل فيها — بنفس شكل الكورسات في الصفحة الرئيسية (للعرض كبطاقات) */
 export async function getEnrolledCoursesForUser(userId: string): Promise<(Course & { category?: Category })[]> {
   await ensureLessonRatingsSchema();
@@ -4907,4 +5094,1041 @@ export async function createMessage(data: {
   await sql`UPDATE "Conversation" SET updated_at = NOW() WHERE id = ${data.conversation_id}`;
   const rows = await sql`SELECT * FROM "Message" WHERE id = ${id} LIMIT 1`;
   return rowToCamel(rows[0] as Record<string, unknown>) as Message;
+}
+
+// ----- CourseRequest (طلبات الطلاب لدورات غير متاحة) -----
+let courseRequestSchemaEnsured = false;
+
+async function ensureCourseRequestSchema(): Promise<void> {
+  if (courseRequestSchemaEnsured) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseRequest" (
+        id                  TEXT PRIMARY KEY,
+        user_id             TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        student_name        TEXT NOT NULL,
+        student_email       TEXT NOT NULL,
+        student_phone       TEXT,
+        student_whatsapp    TEXT,
+        course_title        TEXT NOT NULL,
+        course_subject      TEXT,
+        course_description  TEXT NOT NULL,
+        additional_notes    TEXT,
+        status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed')),
+        reviewed_at         TIMESTAMPTZ,
+        reviewed_by_id      TEXT REFERENCES "User"(id) ON DELETE SET NULL,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseRequest_user_id_idx" ON "CourseRequest"(user_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseRequest_status_idx" ON "CourseRequest"(status)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseRequest_created_at_idx" ON "CourseRequest"(created_at)`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseRequestAttachment" (
+        id          TEXT PRIMARY KEY,
+        request_id  TEXT NOT NULL REFERENCES "CourseRequest"(id) ON DELETE CASCADE,
+        file_url    TEXT NOT NULL,
+        file_name   TEXT,
+        file_type   TEXT NOT NULL CHECK (file_type IN ('pdf', 'image')),
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseRequestAttachment_request_id_idx" ON "CourseRequestAttachment"(request_id)`;
+    courseRequestSchemaEnsured = true;
+  } catch {
+    /* إنشاء الجدول قد يفشل بدون صلاحية */
+  }
+}
+
+export type CourseRequestWithDetails = CourseRequest & {
+  userName?: string;
+  userEmail?: string;
+  reviewedByName?: string | null;
+  attachments: CourseRequestAttachment[];
+};
+
+export async function createCourseRequest(data: {
+  user_id: string;
+  student_name: string;
+  student_email: string;
+  student_phone?: string | null;
+  student_whatsapp?: string | null;
+  course_title: string;
+  course_subject?: string | null;
+  course_description: string;
+  additional_notes?: string | null;
+  attachments?: Array<{ file_url: string; file_name?: string | null; file_type: "pdf" | "image" }>;
+}): Promise<CourseRequest> {
+  await ensureCourseRequestSchema();
+  const id = generateId();
+  await sql`
+    INSERT INTO "CourseRequest" (
+      id, user_id, student_name, student_email, student_phone, student_whatsapp,
+      course_title, course_subject, course_description, additional_notes, status
+    )
+    VALUES (
+      ${id}, ${data.user_id}, ${data.student_name}, ${data.student_email},
+      ${data.student_phone ?? null}, ${data.student_whatsapp ?? null},
+      ${data.course_title}, ${data.course_subject ?? null}, ${data.course_description},
+      ${data.additional_notes ?? null}, 'pending'
+    )
+  `;
+  const attachments = data.attachments ?? [];
+  for (const att of attachments) {
+    const attId = generateId();
+    await sql`
+      INSERT INTO "CourseRequestAttachment" (id, request_id, file_url, file_name, file_type)
+      VALUES (${attId}, ${id}, ${att.file_url}, ${att.file_name ?? null}, ${att.file_type})
+    `;
+  }
+  const rows = await sql`SELECT * FROM "CourseRequest" WHERE id = ${id} LIMIT 1`;
+  return rowToCamel(rows[0] as Record<string, unknown>) as CourseRequest;
+}
+
+export async function listCourseRequestsForAdmin(search?: string | null): Promise<CourseRequestWithDetails[]> {
+  await ensureCourseRequestSchema();
+  const q = search?.trim();
+  const likePattern = q ? `%${q}%` : null;
+
+  let requestRows: Record<string, unknown>[];
+  if (likePattern) {
+    const rows = await sql`
+      SELECT cr.*, u.name as user_name, u.email as user_email,
+             rb.name as reviewed_by_name
+      FROM "CourseRequest" cr
+      JOIN "User" u ON u.id = cr.user_id
+      LEFT JOIN "User" rb ON rb.id = cr.reviewed_by_id
+      WHERE cr.student_name ILIKE ${likePattern}
+         OR cr.course_title ILIKE ${likePattern}
+         OR u.name ILIKE ${likePattern}
+      ORDER BY cr.created_at DESC
+    `;
+    requestRows = rows as Record<string, unknown>[];
+  } else {
+    const rows = await sql`
+      SELECT cr.*, u.name as user_name, u.email as user_email,
+             rb.name as reviewed_by_name
+      FROM "CourseRequest" cr
+      JOIN "User" u ON u.id = cr.user_id
+      LEFT JOIN "User" rb ON rb.id = cr.reviewed_by_id
+      ORDER BY cr.created_at DESC
+    `;
+    requestRows = rows as Record<string, unknown>[];
+  }
+
+  if (requestRows.length === 0) return [];
+
+  const requestIdSet = new Set(requestRows.map((r) => r.id as string));
+  const attachmentRows = await sql`
+    SELECT * FROM "CourseRequestAttachment" ORDER BY created_at ASC
+  `;
+  const attachmentsByRequest = new Map<string, CourseRequestAttachment[]>();
+  for (const row of attachmentRows as Record<string, unknown>[]) {
+    const att = rowToCamel(row) as CourseRequestAttachment & { requestId?: string };
+    const requestId = att.requestId ?? att.request_id;
+    if (!requestId || !requestIdSet.has(requestId)) continue;
+    const list = attachmentsByRequest.get(requestId) ?? [];
+    list.push(att);
+    attachmentsByRequest.set(requestId, list);
+  }
+
+  return requestRows.map((r) => {
+    const base = rowToCamel(r) as CourseRequest;
+    return {
+      ...base,
+      userName: (r.user_name as string) ?? "",
+      userEmail: (r.user_email as string) ?? "",
+      reviewedByName: (r.reviewed_by_name as string) ?? null,
+      attachments: attachmentsByRequest.get(base.id) ?? [],
+    };
+  });
+}
+
+export async function getCourseRequestById(requestId: string): Promise<CourseRequest | null> {
+  await ensureCourseRequestSchema();
+  const rows = await sql`SELECT * FROM "CourseRequest" WHERE id = ${requestId} LIMIT 1`;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  return r ? (rowToCamel(r) as CourseRequest) : null;
+}
+
+export async function markCourseRequestReviewed(requestId: string, reviewedById: string): Promise<boolean> {
+  await ensureCourseRequestSchema();
+  const req = await getCourseRequestById(requestId);
+  if (!req || req.status !== "pending") return false;
+  await sql`
+    UPDATE "CourseRequest"
+    SET status = 'reviewed', reviewed_at = NOW(), reviewed_by_id = ${reviewedById}
+    WHERE id = ${requestId}
+  `;
+  return true;
+}
+
+export async function deleteCourseRequestById(requestId: string): Promise<boolean> {
+  await ensureCourseRequestSchema();
+  if (!requestId?.trim()) return false;
+  await sql`DELETE FROM "CourseRequest" WHERE id = ${requestId.trim()}`;
+  return true;
+}
+
+// ----- Course chat (محادثة جماعية + خاصة لكل دورة) -----
+let courseChatSchemaEnsured = false;
+
+async function ensureCourseChatSchema(): Promise<void> {
+  if (courseChatSchemaEnsured) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseGroupMessage" (
+        id            TEXT PRIMARY KEY,
+        course_id     TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+        sender_id     TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        message_type  TEXT NOT NULL CHECK (message_type IN ('text', 'image', 'file')),
+        content       TEXT,
+        file_url      TEXT,
+        file_name     TEXT,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseGroupMessage_course_created_idx" ON "CourseGroupMessage"(course_id, created_at)`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CoursePrivateConversation" (
+        id              TEXT PRIMARY KEY,
+        course_id       TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+        staff_user_id   TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        student_user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(course_id, student_user_id)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CoursePrivateConversation_staff_idx" ON "CoursePrivateConversation"(staff_user_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CoursePrivateConversation_course_idx" ON "CoursePrivateConversation"(course_id)`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CoursePrivateMessage" (
+        id              TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL REFERENCES "CoursePrivateConversation"(id) ON DELETE CASCADE,
+        sender_id       TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        message_type    TEXT NOT NULL CHECK (message_type IN ('text', 'image', 'file')),
+        content         TEXT,
+        file_url        TEXT,
+        file_name       TEXT,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CoursePrivateMessage_conv_created_idx" ON "CoursePrivateMessage"(conversation_id, created_at)`;
+    courseChatSchemaEnsured = true;
+  } catch {
+    /* schema may fail without DDL permissions */
+  }
+}
+
+export type CourseGroupMessageWithSender = CourseGroupMessage & { senderName?: string };
+
+export async function listCourseGroupMessages(
+  courseId: string,
+  opts?: { since?: Date | null; limit?: number },
+): Promise<CourseGroupMessageWithSender[]> {
+  await ensureCourseChatSchema();
+  const limit = Math.min(Math.max(opts?.limit ?? 100, 1), 200);
+  const since = opts?.since ?? null;
+  let rows: Record<string, unknown>[];
+  if (since) {
+    const r = await sql`
+      SELECT m.*, u.name as sender_name
+      FROM "CourseGroupMessage" m
+      JOIN "User" u ON u.id = m.sender_id
+      WHERE m.course_id = ${courseId} AND m.created_at > ${since}
+      ORDER BY m.created_at ASC
+      LIMIT ${limit}
+    `;
+    rows = r as Record<string, unknown>[];
+  } else {
+    const r = await sql`
+      SELECT m.*, u.name as sender_name
+      FROM "CourseGroupMessage" m
+      JOIN "User" u ON u.id = m.sender_id
+      WHERE m.course_id = ${courseId}
+      ORDER BY m.created_at ASC
+      LIMIT ${limit}
+    `;
+    rows = r as Record<string, unknown>[];
+  }
+  return rows.map((row) => {
+    const msg = rowToCamel(row) as CourseGroupMessageWithSender;
+    msg.senderName = (row.sender_name as string) ?? "";
+    return msg;
+  });
+}
+
+export async function createCourseGroupMessage(data: {
+  course_id: string;
+  sender_id: string;
+  message_type: "text" | "image" | "file";
+  content?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+}): Promise<CourseGroupMessage> {
+  await ensureCourseChatSchema();
+  const id = generateId();
+  await sql`
+    INSERT INTO "CourseGroupMessage" (id, course_id, sender_id, message_type, content, file_url, file_name)
+    VALUES (${id}, ${data.course_id}, ${data.sender_id}, ${data.message_type}, ${data.content ?? null}, ${data.file_url ?? null}, ${data.file_name ?? null})
+  `;
+  const rows = await sql`SELECT * FROM "CourseGroupMessage" WHERE id = ${id} LIMIT 1`;
+  return rowToCamel(rows[0] as Record<string, unknown>) as CourseGroupMessage;
+}
+
+export async function getCourseGroupMessageById(messageId: string): Promise<CourseGroupMessage | null> {
+  await ensureCourseChatSchema();
+  const rows = await sql`SELECT * FROM "CourseGroupMessage" WHERE id = ${messageId} LIMIT 1`;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  return r ? (rowToCamel(r) as CourseGroupMessage) : null;
+}
+
+export async function deleteCourseGroupMessageById(messageId: string, senderId: string): Promise<boolean> {
+  await ensureCourseChatSchema();
+  const rows = await sql`
+    DELETE FROM "CourseGroupMessage" WHERE id = ${messageId} AND sender_id = ${senderId} RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export async function getOrCreateCoursePrivateConversation(
+  courseId: string,
+  staffUserId: string,
+  studentUserId: string,
+): Promise<CoursePrivateConversation> {
+  await ensureCourseChatSchema();
+  const existing = await sql`
+    SELECT * FROM "CoursePrivateConversation"
+    WHERE course_id = ${courseId} AND student_user_id = ${studentUserId}
+    LIMIT 1
+  `;
+  if (existing[0]) {
+    return rowToCamel(existing[0] as Record<string, unknown>) as CoursePrivateConversation;
+  }
+  const id = generateId();
+  await sql`
+    INSERT INTO "CoursePrivateConversation" (id, course_id, staff_user_id, student_user_id)
+    VALUES (${id}, ${courseId}, ${staffUserId}, ${studentUserId})
+  `;
+  const rows = await sql`SELECT * FROM "CoursePrivateConversation" WHERE id = ${id} LIMIT 1`;
+  return rowToCamel(rows[0] as Record<string, unknown>) as CoursePrivateConversation;
+}
+
+export async function getCoursePrivateConversationById(
+  conversationId: string,
+): Promise<CoursePrivateConversation | null> {
+  await ensureCourseChatSchema();
+  const rows = await sql`SELECT * FROM "CoursePrivateConversation" WHERE id = ${conversationId} LIMIT 1`;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  return r ? (rowToCamel(r) as CoursePrivateConversation) : null;
+}
+
+export async function getCoursePrivateConversationForStudent(
+  courseId: string,
+  studentUserId: string,
+): Promise<CoursePrivateConversation | null> {
+  await ensureCourseChatSchema();
+  const rows = await sql`
+    SELECT * FROM "CoursePrivateConversation"
+    WHERE course_id = ${courseId} AND student_user_id = ${studentUserId}
+    LIMIT 1
+  `;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  return r ? (rowToCamel(r) as CoursePrivateConversation) : null;
+}
+
+export type CoursePrivateMessageWithSender = CoursePrivateMessage & { senderName?: string };
+
+export async function listCoursePrivateMessages(
+  conversationId: string,
+  opts?: { since?: Date | null; limit?: number },
+): Promise<CoursePrivateMessageWithSender[]> {
+  await ensureCourseChatSchema();
+  const limit = Math.min(Math.max(opts?.limit ?? 100, 1), 200);
+  const since = opts?.since ?? null;
+  let rows: Record<string, unknown>[];
+  if (since) {
+    const r = await sql`
+      SELECT m.*, u.name as sender_name
+      FROM "CoursePrivateMessage" m
+      JOIN "User" u ON u.id = m.sender_id
+      WHERE m.conversation_id = ${conversationId} AND m.created_at > ${since}
+      ORDER BY m.created_at ASC
+      LIMIT ${limit}
+    `;
+    rows = r as Record<string, unknown>[];
+  } else {
+    const r = await sql`
+      SELECT m.*, u.name as sender_name
+      FROM "CoursePrivateMessage" m
+      JOIN "User" u ON u.id = m.sender_id
+      WHERE m.conversation_id = ${conversationId}
+      ORDER BY m.created_at ASC
+      LIMIT ${limit}
+    `;
+    rows = r as Record<string, unknown>[];
+  }
+  return rows.map((row) => {
+    const msg = rowToCamel(row) as CoursePrivateMessageWithSender;
+    msg.senderName = (row.sender_name as string) ?? "";
+    return msg;
+  });
+}
+
+export async function createCoursePrivateMessage(data: {
+  conversation_id: string;
+  sender_id: string;
+  message_type: "text" | "image" | "file";
+  content?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+}): Promise<CoursePrivateMessage> {
+  await ensureCourseChatSchema();
+  const id = generateId();
+  await sql`
+    INSERT INTO "CoursePrivateMessage" (id, conversation_id, sender_id, message_type, content, file_url, file_name)
+    VALUES (${id}, ${data.conversation_id}, ${data.sender_id}, ${data.message_type}, ${data.content ?? null}, ${data.file_url ?? null}, ${data.file_name ?? null})
+  `;
+  await sql`UPDATE "CoursePrivateConversation" SET updated_at = NOW() WHERE id = ${data.conversation_id}`;
+  const rows = await sql`SELECT * FROM "CoursePrivateMessage" WHERE id = ${id} LIMIT 1`;
+  return rowToCamel(rows[0] as Record<string, unknown>) as CoursePrivateMessage;
+}
+
+export async function getCoursePrivateMessageById(messageId: string): Promise<CoursePrivateMessage | null> {
+  await ensureCourseChatSchema();
+  const rows = await sql`SELECT * FROM "CoursePrivateMessage" WHERE id = ${messageId} LIMIT 1`;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  return r ? (rowToCamel(r) as CoursePrivateMessage) : null;
+}
+
+export async function deleteCoursePrivateMessageById(messageId: string, senderId: string): Promise<boolean> {
+  await ensureCourseChatSchema();
+  const rows = await sql`
+    DELETE FROM "CoursePrivateMessage" WHERE id = ${messageId} AND sender_id = ${senderId} RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export type CourseChatListItem = {
+  courseId: string;
+  courseTitle: string;
+  courseTitleAr: string | null;
+  lastMessageAt: Date | null;
+  lastMessagePreview: string | null;
+  messageCount: number;
+};
+
+export async function listCoursesForStaffGroupChat(
+  staffUserId: string,
+  role: UserRole,
+): Promise<CourseChatListItem[]> {
+  await ensureCourseChatSchema();
+  const isGlobalStaff = role === "ADMIN" || role === "ASSISTANT_ADMIN";
+  let rows: Record<string, unknown>[];
+  if (isGlobalStaff) {
+    const r = await sql`
+      SELECT c.id as course_id, c.title as course_title, c.title_ar as course_title_ar,
+             MAX(m.created_at) as last_message_at,
+             COUNT(m.id)::int as message_count
+      FROM "Course" c
+      LEFT JOIN "CourseGroupMessage" m ON m.course_id = c.id
+      WHERE c.is_published = true
+      GROUP BY c.id, c.title, c.title_ar
+      ORDER BY last_message_at DESC NULLS LAST, c.title ASC
+    `;
+    rows = r as Record<string, unknown>[];
+  } else {
+    const r = await sql`
+      SELECT c.id as course_id, c.title as course_title, c.title_ar as course_title_ar,
+             MAX(m.created_at) as last_message_at,
+             COUNT(m.id)::int as message_count
+      FROM "Course" c
+      LEFT JOIN "CourseGroupMessage" m ON m.course_id = c.id
+      WHERE c.created_by_id = ${staffUserId}
+      GROUP BY c.id, c.title, c.title_ar
+      ORDER BY last_message_at DESC NULLS LAST, c.title ASC
+    `;
+    rows = r as Record<string, unknown>[];
+  }
+
+  const items: CourseChatListItem[] = [];
+  for (const row of rows) {
+    const courseId = row.course_id as string;
+    let lastPreview: string | null = null;
+    const lastRows = await sql`
+      SELECT message_type, content, file_name FROM "CourseGroupMessage"
+      WHERE course_id = ${courseId}
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    if (lastRows[0]) {
+      const lr = lastRows[0] as Record<string, unknown>;
+      const mt = lr.message_type as string;
+      if (mt === "text") lastPreview = ((lr.content as string) ?? "").slice(0, 80);
+      else if (mt === "image") lastPreview = "📷 صورة";
+      else lastPreview = `📎 ${(lr.file_name as string) ?? "ملف"}`;
+    }
+    items.push({
+      courseId,
+      courseTitle: (row.course_title as string) ?? "",
+      courseTitleAr: (row.course_title_ar as string) ?? null,
+      lastMessageAt: (row.last_message_at as Date) ?? null,
+      lastMessagePreview: lastPreview,
+      messageCount: Number(row.message_count ?? 0),
+    });
+  }
+  return items;
+}
+
+export type CoursePrivateThreadListItem = {
+  conversationId: string;
+  courseId: string;
+  courseTitle: string;
+  courseTitleAr: string | null;
+  studentUserId: string;
+  studentName: string;
+  updatedAt: Date;
+  lastMessagePreview: string | null;
+};
+
+export async function listCoursePrivateThreadsForStaff(
+  staffUserId: string,
+  role: UserRole,
+): Promise<CoursePrivateThreadListItem[]> {
+  await ensureCourseChatSchema();
+  const isGlobalStaff = role === "ADMIN" || role === "ASSISTANT_ADMIN";
+  let rows: Record<string, unknown>[];
+  if (isGlobalStaff) {
+    const r = await sql`
+      SELECT conv.*, c.title as course_title, c.title_ar as course_title_ar, u.name as student_name
+      FROM "CoursePrivateConversation" conv
+      JOIN "Course" c ON c.id = conv.course_id
+      JOIN "User" u ON u.id = conv.student_user_id
+      WHERE conv.staff_user_id = ${staffUserId}
+      ORDER BY conv.updated_at DESC
+    `;
+    rows = r as Record<string, unknown>[];
+  } else {
+    const r = await sql`
+      SELECT conv.*, c.title as course_title, c.title_ar as course_title_ar, u.name as student_name
+      FROM "CoursePrivateConversation" conv
+      JOIN "Course" c ON c.id = conv.course_id AND c.created_by_id = ${staffUserId}
+      JOIN "User" u ON u.id = conv.student_user_id
+      WHERE conv.staff_user_id = ${staffUserId}
+      ORDER BY conv.updated_at DESC
+    `;
+    rows = r as Record<string, unknown>[];
+  }
+
+  const items: CoursePrivateThreadListItem[] = [];
+  for (const row of rows) {
+    const conv = rowToCamel(row) as CoursePrivateConversation;
+    let lastPreview: string | null = null;
+    const lastRows = await sql`
+      SELECT message_type, content, file_name FROM "CoursePrivateMessage"
+      WHERE conversation_id = ${conv.id}
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    if (lastRows[0]) {
+      const lr = lastRows[0] as Record<string, unknown>;
+      const mt = lr.message_type as string;
+      if (mt === "text") lastPreview = ((lr.content as string) ?? "").slice(0, 80);
+      else if (mt === "image") lastPreview = "📷 صورة";
+      else lastPreview = `📎 ${(lr.file_name as string) ?? "ملف"}`;
+    }
+    items.push({
+      conversationId: conv.id,
+      courseId: conv.course_id,
+      courseTitle: (row.course_title as string) ?? "",
+      courseTitleAr: (row.course_title_ar as string) ?? null,
+      studentUserId: conv.student_user_id,
+      studentName: (row.student_name as string) ?? "",
+      updatedAt: conv.updated_at,
+      lastMessagePreview: lastPreview,
+    });
+  }
+  return items;
+}
+
+export async function listCoursePrivateThreadsForCourseCreator(
+  courseId: string,
+  staffUserId: string,
+): Promise<CoursePrivateThreadListItem[]> {
+  await ensureCourseChatSchema();
+  const rows = await sql`
+    SELECT conv.*, c.title as course_title, c.title_ar as course_title_ar, u.name as student_name
+    FROM "CoursePrivateConversation" conv
+    JOIN "Course" c ON c.id = conv.course_id
+    JOIN "User" u ON u.id = conv.student_user_id
+    WHERE conv.course_id = ${courseId} AND conv.staff_user_id = ${staffUserId}
+    ORDER BY conv.updated_at DESC
+  `;
+  const items: CoursePrivateThreadListItem[] = [];
+  for (const row of rows as Record<string, unknown>[]) {
+    const conv = rowToCamel(row) as CoursePrivateConversation;
+    let lastPreview: string | null = null;
+    const lastRows = await sql`
+      SELECT message_type, content, file_name FROM "CoursePrivateMessage"
+      WHERE conversation_id = ${conv.id}
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    if (lastRows[0]) {
+      const lr = lastRows[0] as Record<string, unknown>;
+      const mt = lr.message_type as string;
+      if (mt === "text") lastPreview = ((lr.content as string) ?? "").slice(0, 80);
+      else if (mt === "image") lastPreview = "📷 صورة";
+      else lastPreview = `📎 ${(lr.file_name as string) ?? "ملف"}`;
+    }
+    items.push({
+      conversationId: conv.id,
+      courseId: conv.course_id,
+      courseTitle: (row.course_title as string) ?? "",
+      courseTitleAr: (row.course_title_ar as string) ?? null,
+      studentUserId: conv.student_user_id,
+      studentName: (row.student_name as string) ?? "",
+      updatedAt: conv.updated_at,
+      lastMessagePreview: lastPreview,
+    });
+  }
+  return items;
+}
+
+// ----- CourseRating + CourseContentRequest -----
+let courseRatingSchemaEnsured = false;
+
+async function ensureCourseRatingSchema(): Promise<void> {
+  if (courseRatingSchemaEnsured) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseRating" (
+        id         TEXT PRIMARY KEY,
+        course_id  TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+        user_id    TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        rating     INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        feedback   TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT course_rating_unique_course_user UNIQUE (course_id, user_id)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseRating_course_id_idx" ON "CourseRating"(course_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseRating_user_id_idx" ON "CourseRating"(user_id)`;
+    courseRatingSchemaEnsured = true;
+  } catch {
+    /* schema may fail without DDL permissions */
+  }
+}
+
+let courseContentRequestSchemaEnsured = false;
+
+async function ensureCourseContentRequestSchema(): Promise<void> {
+  if (courseContentRequestSchemaEnsured) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseContentRequest" (
+        id              TEXT PRIMARY KEY,
+        course_id       TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+        user_id         TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        description     TEXT NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed')),
+        reviewed_at     TIMESTAMPTZ,
+        reviewed_by_id  TEXT REFERENCES "User"(id) ON DELETE SET NULL,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseContentRequest_course_id_idx" ON "CourseContentRequest"(course_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseContentRequest_user_id_idx" ON "CourseContentRequest"(user_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseContentRequest_status_idx" ON "CourseContentRequest"(status)`;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseContentRequest_created_at_idx" ON "CourseContentRequest"(created_at)`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseContentRequestAttachment" (
+        id          TEXT PRIMARY KEY,
+        request_id  TEXT NOT NULL REFERENCES "CourseContentRequest"(id) ON DELETE CASCADE,
+        file_url    TEXT NOT NULL,
+        file_name   TEXT,
+        file_type   TEXT NOT NULL CHECK (file_type IN ('pdf', 'image')),
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseContentRequestAttachment_request_id_idx" ON "CourseContentRequestAttachment"(request_id)`;
+    courseContentRequestSchemaEnsured = true;
+  } catch {
+    /* schema may fail without DDL permissions */
+  }
+}
+
+export type StaffFeedbackItem = {
+  id: string;
+  type: "course" | "lesson";
+  studentName: string;
+  studentEmail: string;
+  courseId: string;
+  courseTitle: string;
+  courseTitleAr: string | null;
+  lessonId?: string;
+  lessonTitle?: string;
+  lessonTitleAr?: string | null;
+  rating: number;
+  feedback: string | null;
+  createdAt: Date;
+};
+
+export type CourseContentRequestWithDetails = CourseContentRequest & {
+  userName?: string;
+  userEmail?: string;
+  courseTitle?: string;
+  courseTitleAr?: string | null;
+  reviewedByName?: string | null;
+  attachments: CourseContentRequestAttachment[];
+};
+
+export async function listFeedbacksForStaff(opts?: {
+  teacherId?: string | null;
+  search?: string | null;
+}): Promise<StaffFeedbackItem[]> {
+  await ensureCourseRatingSchema();
+  await ensureLessonRatingsSchema();
+  const teacherId = opts?.teacherId?.trim() || null;
+  const q = opts?.search?.trim();
+  const likePattern = q ? `%${q}%` : null;
+  const items: StaffFeedbackItem[] = [];
+
+  let courseRows: Record<string, unknown>[];
+  if (teacherId && likePattern) {
+    courseRows = (await sql`
+      SELECT cr.id, cr.rating, cr.feedback, cr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar
+      FROM "CourseRating" cr
+      JOIN "User" u ON u.id = cr.user_id
+      JOIN "Course" c ON c.id = cr.course_id
+      WHERE c.created_by_id = ${teacherId}
+        AND (u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR c.title_ar ILIKE ${likePattern})
+      ORDER BY cr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (teacherId) {
+    courseRows = (await sql`
+      SELECT cr.id, cr.rating, cr.feedback, cr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar
+      FROM "CourseRating" cr
+      JOIN "User" u ON u.id = cr.user_id
+      JOIN "Course" c ON c.id = cr.course_id
+      WHERE c.created_by_id = ${teacherId}
+      ORDER BY cr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (likePattern) {
+    courseRows = (await sql`
+      SELECT cr.id, cr.rating, cr.feedback, cr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar
+      FROM "CourseRating" cr
+      JOIN "User" u ON u.id = cr.user_id
+      JOIN "Course" c ON c.id = cr.course_id
+      WHERE u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR c.title_ar ILIKE ${likePattern}
+      ORDER BY cr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else {
+    courseRows = (await sql`
+      SELECT cr.id, cr.rating, cr.feedback, cr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar
+      FROM "CourseRating" cr
+      JOIN "User" u ON u.id = cr.user_id
+      JOIN "Course" c ON c.id = cr.course_id
+      ORDER BY cr.created_at DESC
+    `) as Record<string, unknown>[];
+  }
+
+  for (const row of courseRows) {
+    items.push({
+      id: String(row.id),
+      type: "course",
+      studentName: String(row.student_name ?? ""),
+      studentEmail: String(row.student_email ?? ""),
+      courseId: String(row.course_id),
+      courseTitle: String(row.course_title ?? ""),
+      courseTitleAr: (row.course_title_ar as string | null) ?? null,
+      rating: Number(row.rating),
+      feedback: row.feedback != null ? String(row.feedback) : null,
+      createdAt: new Date(row.created_at as string | Date),
+    });
+  }
+
+  let lessonRows: Record<string, unknown>[];
+  if (teacherId && likePattern) {
+    lessonRows = (await sql`
+      SELECT lr.id, lr.rating, lr.feedback, lr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar,
+             l.id as lesson_id, l.title as lesson_title, l.title_ar as lesson_title_ar
+      FROM "LessonRating" lr
+      JOIN "User" u ON u.id = lr.user_id
+      JOIN "Course" c ON c.id = lr.course_id
+      JOIN "Lesson" l ON l.id = lr.lesson_id
+      WHERE c.created_by_id = ${teacherId}
+        AND lr.feedback IS NOT NULL AND TRIM(lr.feedback) <> ''
+        AND (u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR l.title ILIKE ${likePattern})
+      ORDER BY lr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (teacherId) {
+    lessonRows = (await sql`
+      SELECT lr.id, lr.rating, lr.feedback, lr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar,
+             l.id as lesson_id, l.title as lesson_title, l.title_ar as lesson_title_ar
+      FROM "LessonRating" lr
+      JOIN "User" u ON u.id = lr.user_id
+      JOIN "Course" c ON c.id = lr.course_id
+      JOIN "Lesson" l ON l.id = lr.lesson_id
+      WHERE c.created_by_id = ${teacherId}
+        AND lr.feedback IS NOT NULL AND TRIM(lr.feedback) <> ''
+      ORDER BY lr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (likePattern) {
+    lessonRows = (await sql`
+      SELECT lr.id, lr.rating, lr.feedback, lr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar,
+             l.id as lesson_id, l.title as lesson_title, l.title_ar as lesson_title_ar
+      FROM "LessonRating" lr
+      JOIN "User" u ON u.id = lr.user_id
+      JOIN "Course" c ON c.id = lr.course_id
+      JOIN "Lesson" l ON l.id = lr.lesson_id
+      WHERE lr.feedback IS NOT NULL AND TRIM(lr.feedback) <> ''
+        AND (u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR l.title ILIKE ${likePattern})
+      ORDER BY lr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else {
+    lessonRows = (await sql`
+      SELECT lr.id, lr.rating, lr.feedback, lr.created_at,
+             u.name as student_name, u.email as student_email,
+             c.id as course_id, c.title as course_title, c.title_ar as course_title_ar,
+             l.id as lesson_id, l.title as lesson_title, l.title_ar as lesson_title_ar
+      FROM "LessonRating" lr
+      JOIN "User" u ON u.id = lr.user_id
+      JOIN "Course" c ON c.id = lr.course_id
+      JOIN "Lesson" l ON l.id = lr.lesson_id
+      WHERE lr.feedback IS NOT NULL AND TRIM(lr.feedback) <> ''
+      ORDER BY lr.created_at DESC
+    `) as Record<string, unknown>[];
+  }
+
+  for (const row of lessonRows) {
+    items.push({
+      id: String(row.id),
+      type: "lesson",
+      studentName: String(row.student_name ?? ""),
+      studentEmail: String(row.student_email ?? ""),
+      courseId: String(row.course_id),
+      courseTitle: String(row.course_title ?? ""),
+      courseTitleAr: (row.course_title_ar as string | null) ?? null,
+      lessonId: String(row.lesson_id),
+      lessonTitle: String(row.lesson_title ?? ""),
+      lessonTitleAr: (row.lesson_title_ar as string | null) ?? null,
+      rating: Number(row.rating),
+      feedback: row.feedback != null ? String(row.feedback) : null,
+      createdAt: new Date(row.created_at as string | Date),
+    });
+  }
+
+  items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  return items;
+}
+
+export async function createCourseContentRequest(data: {
+  course_id: string;
+  user_id: string;
+  description: string;
+  attachments?: Array<{ file_url: string; file_name?: string | null; file_type: "pdf" | "image" }>;
+}): Promise<CourseContentRequest> {
+  await ensureCourseContentRequestSchema();
+  const id = generateId();
+  await sql`
+    INSERT INTO "CourseContentRequest" (id, course_id, user_id, description, status)
+    VALUES (${id}, ${data.course_id}, ${data.user_id}, ${data.description}, 'pending')
+  `;
+  for (const att of data.attachments ?? []) {
+    const attId = generateId();
+    await sql`
+      INSERT INTO "CourseContentRequestAttachment" (id, request_id, file_url, file_name, file_type)
+      VALUES (${attId}, ${id}, ${att.file_url}, ${att.file_name ?? null}, ${att.file_type})
+    `;
+  }
+  const rows = await sql`SELECT * FROM "CourseContentRequest" WHERE id = ${id} LIMIT 1`;
+  return rowToCamel(rows[0] as Record<string, unknown>) as CourseContentRequest;
+}
+
+export async function listCourseContentRequestsForStaff(opts?: {
+  teacherId?: string | null;
+  search?: string | null;
+  status?: "pending" | "reviewed" | null;
+}): Promise<CourseContentRequestWithDetails[]> {
+  await ensureCourseContentRequestSchema();
+  const teacherId = opts?.teacherId?.trim() || null;
+  const q = opts?.search?.trim();
+  const likePattern = q ? `%${q}%` : null;
+  const statusFilter =
+    opts?.status === "pending" || opts?.status === "reviewed" ? opts.status : null;
+
+  let requestRows: Record<string, unknown>[];
+  if (teacherId && likePattern && statusFilter) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE c.created_by_id = ${teacherId} AND ccr.status = ${statusFilter}
+        AND (u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR ccr.description ILIKE ${likePattern})
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (teacherId && statusFilter) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE c.created_by_id = ${teacherId} AND ccr.status = ${statusFilter}
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (teacherId && likePattern) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE c.created_by_id = ${teacherId}
+        AND (u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR ccr.description ILIKE ${likePattern})
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (teacherId) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE c.created_by_id = ${teacherId}
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (likePattern && statusFilter) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE ccr.status = ${statusFilter}
+        AND (u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR ccr.description ILIKE ${likePattern})
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (statusFilter) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE ccr.status = ${statusFilter}
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else if (likePattern) {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      WHERE u.name ILIKE ${likePattern} OR c.title ILIKE ${likePattern} OR ccr.description ILIKE ${likePattern}
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  } else {
+    requestRows = (await sql`
+      SELECT ccr.*, u.name as user_name, u.email as user_email,
+             c.title as course_title, c.title_ar as course_title_ar,
+             rb.name as reviewed_by_name
+      FROM "CourseContentRequest" ccr
+      JOIN "User" u ON u.id = ccr.user_id
+      JOIN "Course" c ON c.id = ccr.course_id
+      LEFT JOIN "User" rb ON rb.id = ccr.reviewed_by_id
+      ORDER BY ccr.created_at DESC
+    `) as Record<string, unknown>[];
+  }
+
+  if (requestRows.length === 0) return [];
+
+  const requestIdSet = new Set(requestRows.map((r) => r.id as string));
+  const attachmentRows = await sql`
+    SELECT * FROM "CourseContentRequestAttachment" ORDER BY created_at ASC
+  `;
+  const attachmentsByRequest = new Map<string, CourseContentRequestAttachment[]>();
+  for (const row of attachmentRows as Record<string, unknown>[]) {
+    const att = rowToCamel(row) as CourseContentRequestAttachment & { requestId?: string };
+    const requestId = att.requestId ?? att.request_id;
+    if (!requestId || !requestIdSet.has(requestId)) continue;
+    const list = attachmentsByRequest.get(requestId) ?? [];
+    list.push(att);
+    attachmentsByRequest.set(requestId, list);
+  }
+
+  return requestRows.map((r) => {
+    const base = rowToCamel(r) as CourseContentRequest;
+    return {
+      ...base,
+      userName: (r.user_name as string) ?? "",
+      userEmail: (r.user_email as string) ?? "",
+      courseTitle: (r.course_title as string) ?? "",
+      courseTitleAr: (r.course_title_ar as string | null) ?? null,
+      reviewedByName: (r.reviewed_by_name as string) ?? null,
+      attachments: attachmentsByRequest.get(base.id) ?? [],
+    };
+  });
+}
+
+export async function getCourseContentRequestById(
+  requestId: string,
+): Promise<CourseContentRequest | null> {
+  await ensureCourseContentRequestSchema();
+  const rows = await sql`SELECT * FROM "CourseContentRequest" WHERE id = ${requestId} LIMIT 1`;
+  const r = rows[0] as Record<string, unknown> | undefined;
+  return r ? (rowToCamel(r) as CourseContentRequest) : null;
+}
+
+export async function markCourseContentRequestReviewed(
+  requestId: string,
+  reviewedById: string,
+): Promise<boolean> {
+  await ensureCourseContentRequestSchema();
+  const req = await getCourseContentRequestById(requestId);
+  if (!req || req.status !== "pending") return false;
+  await sql`
+    UPDATE "CourseContentRequest"
+    SET status = 'reviewed', reviewed_at = NOW(), reviewed_by_id = ${reviewedById}
+    WHERE id = ${requestId}
+  `;
+  return true;
+}
+
+export async function deleteCourseContentRequestById(requestId: string): Promise<boolean> {
+  await ensureCourseContentRequestSchema();
+  if (!requestId?.trim()) return false;
+  await sql`DELETE FROM "CourseContentRequest" WHERE id = ${requestId.trim()}`;
+  return true;
 }

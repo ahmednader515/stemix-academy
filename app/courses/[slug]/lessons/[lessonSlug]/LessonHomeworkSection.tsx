@@ -137,12 +137,12 @@ export function LessonHomeworkSection({ lessonId }: { lessonId: string }) {
         يمكنك إرسال رابط أو ملف PDF أو صورة كواجب لهذه الحصة.
       </p>
       {error && (
-        <div className="mt-3 rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <div className="mt-3 rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">
           {error}
         </div>
       )}
       {success && (
-        <div className="mt-3 rounded-[var(--radius-btn)] bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+        <div className="mt-3 rounded-[var(--radius-btn)] bg-green-500/10 px-3 py-2 text-sm text-green-600">
           {success}
         </div>
       )}

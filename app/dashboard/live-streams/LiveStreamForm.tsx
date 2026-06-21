@@ -35,8 +35,7 @@ export function LiveStreamForm({ courseOptions, initialData }: Props) {
 
   const [form, setForm] = useState({
     courseId: initialData?.courseId ?? "",
-    title: initialData?.title ?? "",
-    titleAr: initialData?.titleAr ?? "",
+    titleAr: initialData?.titleAr || initialData?.title || "",
     provider: (initialData?.provider ?? "zoom") as "zoom" | "google_meet",
     meetingUrl: initialData?.meetingUrl ?? "",
     meetingId: initialData?.meetingId ?? "",
@@ -58,7 +57,7 @@ export function LiveStreamForm({ courseOptions, initialData }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!form.courseId || !form.title.trim() || !form.meetingUrl.trim() || !form.scheduledAt) {
+    if (!form.courseId || !form.titleAr.trim() || !form.meetingUrl.trim() || !form.scheduledAt) {
       setError(t(`${F}.validationRequired`));
       return;
     }
@@ -75,8 +74,8 @@ export function LiveStreamForm({ courseOptions, initialData }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             courseId: form.courseId,
-            title: form.title.trim(),
-            titleAr: form.titleAr.trim() || null,
+            title: form.titleAr.trim(),
+            titleAr: form.titleAr.trim(),
             provider: form.provider,
             meetingUrl: form.meetingUrl.trim(),
             meetingId: form.meetingId.trim() || null,
@@ -98,8 +97,8 @@ export function LiveStreamForm({ courseOptions, initialData }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             courseId: form.courseId,
-            title: form.title.trim(),
-            titleAr: form.titleAr.trim() || null,
+            title: form.titleAr.trim(),
+            titleAr: form.titleAr.trim(),
             provider: form.provider,
             meetingUrl: form.meetingUrl.trim(),
             meetingId: form.meetingId.trim() || null,
@@ -126,7 +125,7 @@ export function LiveStreamForm({ courseOptions, initialData }: Props) {
   return (
     <form onSubmit={handleSubmit} className="mt-6 max-w-xl space-y-4">
       {error && (
-        <p className="rounded-[var(--radius-btn)] bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
+        <p className="rounded-[var(--radius-btn)] bg-red-100 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -148,21 +147,11 @@ export function LiveStreamForm({ courseOptions, initialData }: Props) {
         <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">{t(`${F}.labelTitle`)}</label>
         <input
           type="text"
-          value={form.title}
-          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          className="w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm"
-          placeholder={t(`${F}.titlePlaceholder`)}
-          required
-        />
-      </div>
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">{t(`${F}.labelTitleAr`)}</label>
-        <input
-          type="text"
           value={form.titleAr}
           onChange={(e) => setForm((f) => ({ ...f, titleAr: e.target.value }))}
           className="w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm"
-          placeholder={t(`${F}.titleArPlaceholder`)}
+          placeholder={t(`${F}.titlePlaceholder`)}
+          required
         />
       </div>
       <div>

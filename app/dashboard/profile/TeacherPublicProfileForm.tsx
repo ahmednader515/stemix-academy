@@ -51,7 +51,7 @@ export function TeacherPublicProfileForm({ defaultSubject, defaultAvatarUrl }: P
       </p>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
         {error ? (
-          <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">
             {error}
           </div>
         ) : null}
@@ -91,7 +91,7 @@ export function TeacherPublicProfileForm({ defaultSubject, defaultAvatarUrl }: P
                   setAvatarUrl("");
                   setImageUploadError("");
                 }}
-                className="text-sm text-red-600 hover:underline dark:text-red-400"
+                className="text-sm text-red-600 hover:underline"
               >
                 إزالة الصورة
               </button>
@@ -134,7 +134,7 @@ export function TeacherPublicProfileForm({ defaultSubject, defaultAvatarUrl }: P
             </label>
           </div>
           {imageUploadError ? (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{imageUploadError}</p>
+            <p className="mt-1 text-sm text-red-600">{imageUploadError}</p>
           ) : null}
         </div>
         <button

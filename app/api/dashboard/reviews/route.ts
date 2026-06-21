@@ -1,3 +1,4 @@
+import { revalidatePublicCatalogCache } from "@/lib/revalidate-public-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
       image_url: imageUrl,
       order: body.order ?? 0,
     });
+    revalidatePublicCatalogCache();
     return NextResponse.json(review);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

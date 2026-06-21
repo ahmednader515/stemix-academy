@@ -54,6 +54,8 @@ export function DashboardNav({
         <NavLink href="/dashboard/statistics">{t("dashboardNav.studentStats", "Student statistics")}</NavLink>
         <NavLink href="/dashboard/codes">{t("dashboardNav.createCodes", "Create codes")}</NavLink>
         <NavLink href="/dashboard/homework">{t("dashboardNav.homework", "Student homework")}</NavLink>
+        <NavLink href="/dashboard/course-chats">{t("dashboardNav.courseChats", "محادثات الدورات")}</NavLink>
+        <NavLink href="/dashboard/course-feedback">{t("dashboardNav.courseFeedback", "تقييمات وطلبات المحتوى")}</NavLink>
         <NavLink href="/dashboard/messages">{t("dashboardNav.contactMyStudents", "Contact my students")}</NavLink>
         <NavLink href="/dashboard/live-streams">{t("dashboardNav.liveStreams", "Live streams")}</NavLink>
       </>
@@ -95,8 +97,23 @@ export function DashboardNav({
         </NavLink>
       )}
       {(isAdmin || isAssistant) && (
+        <NavLink href="/dashboard/course-chats">
+          {t("dashboardNav.courseChats", "محادثات الدورات")}
+        </NavLink>
+      )}
+      {(isAdmin || isAssistant) && (
         <NavLink href="/dashboard/homework">
           {t("dashboardNav.homework", "Student homework")}
+        </NavLink>
+      )}
+      {(isAdmin || isAssistant) && (
+        <NavLink href="/dashboard/course-requests">
+          {t("dashboardNav.courseRequests", "طلبات الدورات")}
+        </NavLink>
+      )}
+      {(isAdmin || isAssistant) && (
+        <NavLink href="/dashboard/course-feedback">
+          {t("dashboardNav.courseFeedback", "تقييمات وطلبات المحتوى")}
         </NavLink>
       )}
       {(isAdmin || isAssistant) && (

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@import "../components/be-home/be-home.css";
+
 @theme inline {
   --font-sans: var(--font-outfit), system-ui, sans-serif;
   --font-display: var(--font-outfit), system-ui, sans-serif;
@@ -7,8 +9,7 @@
   --radius-btn: 0.75rem;
 }
 
-/* الوضع النهاري: صفحة بيضاء + تدرج أزرق من الأسفل للأعلى */
-html.light {
+:root {
   --color-background: #ffffff;
   --color-foreground: #1e293b;
   --color-surface: #ffffff;
@@ -23,45 +24,6 @@ html.light {
   --shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04);
   --color-reviews-bg: #f1f5f9;
   --color-reviews-avatar: #e2e8f0;
-}
-
-/* الوضع الليلي: أسود عادي */
-html.dark {
-  --color-background: #000000;
-  --color-foreground: #fafaf9;
-  --color-surface: #0a0a0a;
-  --color-border: #1a1a1a;
-  --color-primary: var(--platform-primary, #2dd4bf);
-  --color-primary-hover: color-mix(in srgb, var(--color-primary) 82%, #fff);
-  --color-primary-light: #134e4a;
-  --color-accent: #f59e0b;
-  --color-muted: #a8a29e;
-  --color-success: #059669;
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.5);
-  --shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.5);
-  --color-reviews-bg: #171717;
-  --color-reviews-avatar: #262626;
-}
-
-/* افتراضي: وضع ليلي إذا لم يُختر وضع — أسود عادي */
-html:not(.light):not(.dark) {
-  --color-background: #000000;
-  --color-foreground: #fafaf9;
-  --color-surface: #0a0a0a;
-  --color-border: #1a1a1a;
-  --color-primary: var(--platform-primary, #2dd4bf);
-  --color-primary-hover: color-mix(in srgb, var(--color-primary) 82%, #fff);
-  --color-primary-light: #134e4a;
-  --color-accent: #f59e0b;
-  --color-muted: #a8a29e;
-  --color-success: #059669;
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.5);
-  --shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.5);
-  --color-reviews-bg: #171717;
-  --color-reviews-avatar: #262626;
-}
-
-:root {
   --background: var(--color-background);
   --foreground: var(--color-foreground);
 }
@@ -71,30 +33,6 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  min-height: 100vh;
-}
-
-/* Date/time inputs — hide native indicator; themed icons are rendered in the component */
-.datetime-input-themed {
-  accent-color: var(--color-primary);
-  color-scheme: light dark;
-}
-
-.datetime-input-themed::-webkit-calendar-picker-indicator {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-/* في الوضع الساطع: تدرج أزرق خفيف جداً حتى منتصف الشاشة */
-html.light body {
   background: linear-gradient(
     to top,
     #e0f2fe 0%,
@@ -107,15 +45,32 @@ html.light body {
   );
   background-attachment: fixed;
   background-size: 100% 100vh;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
 }
 
-/* منطقة المحتوى الرئيسي (الكورسات وغيرها) بيضاء بالكامل بدون تدرج */
-html.light main {
+main {
   background: #ffffff;
 }
 
-/* الصفحة الرئيسية فقط: تدرج أزرق خفيف جداً حتى منتصف الـ Hero */
-html.light .home-hero-gradient {
+/* Date/time inputs — hide native indicator; themed icons are rendered in the component */
+.datetime-input-themed {
+  accent-color: var(--color-primary);
+  color-scheme: light;
+}
+
+.datetime-input-themed::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.home-hero-gradient {
   background: linear-gradient(
     to top,
     #e0f2fe 0%,
@@ -137,14 +92,8 @@ html.light .home-hero-gradient {
   opacity: 0.9;
 }
 
-/* لون التموج: أبيض في الوضع الساطع، أسود في الوضع المظلم فقط (حسب مفتاح الثيم) */
-html.light .hero-wave-fill {
-  fill: #ffffff;
-}
-html.dark .hero-wave-fill {
-  fill: #000000;
-}
 .hero-wave-fill {
+  fill: #ffffff;
   transition: fill 0.3s ease;
 }
 
@@ -364,12 +313,6 @@ html.dark .hero-wave-fill {
     #eef6fc 52%,
     #ffffff 100%
   );
-}
-
-/* دارك: خلفية سوداء موحّدة مع الشريط فوق القسم — بلا تدرج يظهر كخط فاصل */
-html.dark .home-teachers-hero-blend,
-html:not(.light):not(.dark) .home-teachers-hero-blend {
-  background: var(--color-background);
 }
 
 /* خلفية نابضة متوازنة للوحة تحكم الأدمن */

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { SubscriptionPlanCard, type SubscriptionPlanCardData } from "@/components/SubscriptionPlanCard";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { getDir } from "@/lib/i18n/core";
 
 export function StudentSubscriptionsPanel({
@@ -16,8 +16,7 @@ export function StudentSubscriptionsPanel({
   activePlatformSubscriptionExpiresAtIso: string | null;
 }) {
   const t = useT();
-  const locale = useLocale();
-  const dir = getDir(locale);
+  const dir = getDir();
   const [open, setOpen] = useState(false);
 
   return (

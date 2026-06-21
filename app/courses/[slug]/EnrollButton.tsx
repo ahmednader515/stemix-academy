@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 
 export function EnrollButton({
   courseId,
@@ -20,7 +20,6 @@ export function EnrollButton({
   const [codeLoading, setCodeLoading] = useState(false);
   const [codeMessage, setCodeMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const router = useRouter();
-  const locale = useLocale();
   const t = useT();
 
   const hasEnoughBalance = coursePrice === 0 || userBalance >= coursePrice;
@@ -28,9 +27,7 @@ export function EnrollButton({
   async function handleClick() {
     if (!hasEnoughBalance) {
       setError(
-        locale === "ar"
-          ? `رصيدك غير كافٍ. سعر الدورة: ${coursePrice.toFixed(2)} ج.م، رصيدك: ${userBalance.toFixed(2)} ج.م`
-          : `Insufficient balance. Course price: ${coursePrice.toFixed(2)} EGP, your balance: ${userBalance.toFixed(2)} EGP`,
+        `رصيدك غير كافٍ. سعر الدورة: ${coursePrice.toFixed(2)} ج.م، رصيدك: ${userBalance.toFixed(2)} ج.م`,
       );
       return;
     }
@@ -42,12 +39,7 @@ export function EnrollButton({
     setLoading(false);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(
-        data.error ??
-          (locale === "ar"
-            ? t("courses.enrollFailed", "فشل التسجيل في الدورة")
-            : t("courses.enrollFailed", "Failed to enroll in course")),
-      );
+      setError(data.error ?? t("courses.enrollFailed", "فشل التسجيل في الدورة"));
       return;
     }
     router.refresh();
@@ -59,10 +51,7 @@ export function EnrollButton({
     if (!trimmed) {
       setCodeMessage({
         type: "error",
-        text:
-          locale === "ar"
-            ? t("codes.enterActivationCode", "أدخل كود التفعيل")
-            : t("codes.enterActivationCode", "Enter the activation code"),
+        text: t("codes.enterActivationCode", "أدخل كود التفعيل"),
       });
       return;
     }
@@ -78,31 +67,20 @@ export function EnrollButton({
       if (!res.ok) {
         setCodeMessage({
           type: "error",
-          text:
-            data.error ??
-            (locale === "ar"
-              ? t("codes.activationFailed", "فشل تفعيل الكود")
-              : t("codes.activationFailed", "Code activation failed")),
+          text: data.error ?? t("codes.activationFailed", "فشل تفعيل الكود"),
         });
         return;
       }
       setCodeMessage({
         type: "success",
-        text:
-          data.message ??
-          (locale === "ar"
-            ? t("codes.activationSuccess", "تم تفعيل الكود بنجاح")
-            : t("codes.activationSuccess", "Code activated successfully")),
+        text: data.message ?? t("codes.activationSuccess", "تم تفعيل الكود بنجاح"),
       });
       setCode("");
       router.refresh();
     } catch {
       setCodeMessage({
         type: "error",
-        text:
-          locale === "ar"
-            ? t("codes.activationErrorGeneric", "حدث خطأ أثناء التفعيل")
-            : t("codes.activationErrorGeneric", "An error occurred during activation"),
+        text: t("codes.activationErrorGeneric", "حدث خطأ أثناء التفعيل"),
       });
     } finally {
       setCodeLoading(false);
@@ -114,30 +92,24 @@ export function EnrollButton({
       {coursePrice > 0 && (
         <div className="mb-4 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[var(--color-muted)]">
-              {locale === "ar" ? t("courses.priceLabel", "سعر الدورة:") : t("courses.priceLabel", "Course price:")}
-            </span>
+            <span className="text-sm text-[var(--color-muted)]">{t("courses.priceLabel", "سعر الدورة:")}</span>
             <span className="text-lg font-semibold text-[var(--color-foreground)]">
-              {coursePrice.toFixed(2)} {locale === "ar" ? t("common.egpShortAr", "ج.م") : t("common.egyptianPoundShort", "EGP")}
+              {coursePrice.toFixed(2)} {t("common.egpShortAr", "ج.م")}
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span className="text-sm text-[var(--color-muted)]">
-              {locale === "ar"
-                ? t("wallet.currentBalanceLabel", "رصيدك الحالي:")
-                : t("wallet.currentBalanceLabel", "Your balance:")}
+              {t("wallet.currentBalanceLabel", "رصيدك الحالي:")}
             </span>
             <span className={`text-lg font-semibold ${hasEnoughBalance ? "text-[var(--color-success)]" : "text-red-600"}`}>
-              {userBalance.toFixed(2)} {locale === "ar" ? t("common.egpShortAr", "ج.م") : t("common.egyptianPoundShort", "EGP")}
+              {userBalance.toFixed(2)} {t("common.egpShortAr", "ج.م")}
             </span>
           </div>
           {!hasEnoughBalance && (
             <p className="mt-2 text-sm text-red-600">
-              {locale === "ar"
-                ? `تحتاج ${((coursePrice - userBalance).toFixed(2))} ج.م إضافية. `
-                : `You need an additional ${((coursePrice - userBalance).toFixed(2))} EGP. `}
+              {`تحتاج ${(coursePrice - userBalance).toFixed(2)} ج.م إضافية. `}
               <Link href="/dashboard" className="font-medium underline">
-                {locale === "ar" ? t("wallet.topUp", "شحن الرصيد") : t("wallet.topUp", "Top up balance")}
+                {t("wallet.topUp", "شحن الرصيد")}
               </Link>
             </p>
           )}
@@ -146,20 +118,14 @@ export function EnrollButton({
 
       <div className="mb-4 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)]/50 p-4">
         <p className="mb-3 text-sm font-medium text-[var(--color-foreground)]">
-          {locale === "ar"
-            ? t("codes.haveActivationCode", "لديك كود تفعيل؟")
-            : t("codes.haveActivationCode", "Have an activation code?")}
+          {t("codes.haveActivationCode", "لديك كود تفعيل؟")}
         </p>
         <form onSubmit={handleActivateCode} className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder={
-              locale === "ar"
-                ? t("codes.activationCodePlaceholder", "أدخل كود التفعيل")
-                : t("codes.activationCodePlaceholder", "Enter activation code")
-            }
+            placeholder={t("codes.activationCodePlaceholder", "أدخل كود التفعيل")}
             className="min-w-[160px] flex-1 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm font-mono placeholder:text-[var(--color-muted)] focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             disabled={codeLoading}
           />
@@ -168,44 +134,30 @@ export function EnrollButton({
             disabled={codeLoading}
             className="rounded-[var(--radius-btn)] border border-[var(--color-primary)] bg-[var(--color-primary)]/10 px-4 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 disabled:opacity-50"
           >
-            {codeLoading
-              ? (locale === "ar"
-                  ? t("codes.activating", "جاري التفعيل...")
-                  : t("codes.activating", "Activating..."))
-              : (locale === "ar"
-                  ? t("codes.activate", "تفعيل الكود")
-                  : t("codes.activate", "Activate code"))}
+            {codeLoading ? t("codes.activating", "جاري التفعيل...") : t("codes.activate", "تفعيل الكود")}
           </button>
         </form>
         {codeMessage && (
-          <p className={`mt-2 text-sm ${codeMessage.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+          <p className={`mt-2 text-sm ${codeMessage.type === "success" ? "text-green-600" : "text-red-600"}`}>
             {codeMessage.text}
           </p>
         )}
       </div>
 
       {error && (
-        <div className="mb-4 rounded-[var(--radius-btn)] bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-          {error}
-        </div>
+        <div className="mb-4 rounded-[var(--radius-btn)] bg-red-500/10 px-4 py-3 text-sm text-red-600">{error}</div>
       )}
       <button
         type="button"
         onClick={handleClick}
         disabled={loading || !hasEnoughBalance}
-        className="w-full rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-6 py-3 font-medium text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-6 py-3 font-medium text-white hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
-          ? (locale === "ar"
-              ? t("courses.enrolling", "جاري التسجيل...")
-              : t("courses.enrolling", "Enrolling..."))
+          ? t("courses.enrolling", "جاري التسجيل...")
           : coursePrice > 0
-          ? (locale === "ar"
-              ? `شراء الدورة (${coursePrice.toFixed(2)} ج.م)`
-              : `Buy course (${coursePrice.toFixed(2)} EGP)`)
-          : (locale === "ar"
-              ? t("courses.enrollFree", "التسجيل في الدورة (مجاناً)")
-              : t("courses.enrollFree", "Enroll (Free)"))}
+            ? `شراء الدورة (${coursePrice.toFixed(2)} ج.م)`
+            : t("courses.enrollFree", "التسجيل في الدورة (مجاناً)")}
       </button>
     </div>
   );

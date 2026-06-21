@@ -1,0 +1,28 @@
+.auth-page-shell {
+  flex: 1;
+  display: flex;
+  width: 100%;
+  min-height: calc(100vh - 4.5rem);
+  background: #ffffff;
+}
+
+.auth-page {
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+}
+
+.auth-page-title {
+  color: var(--be-navy, #0c3d7a);
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 1.3;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .auth-page-title {
+    font-size: 2rem;
+  }
+}

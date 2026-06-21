@@ -1,20 +1,18 @@
-"use client";
-
-import { useLocale } from "@/components/LocaleProvider";
 import { getDir } from "@/lib/i18n/core";
+import { DEFAULT_LOCALE } from "@/lib/i18n/constants";
 import type { Locale } from "@/lib/i18n/types";
 
-/** Table + header alignment: English → logical start (left), Arabic → logical start (right). */
 export function useDashboardTable() {
-  const locale = useLocale();
-  const dir = getDir(locale);
-  const thClass =
-    "px-3 py-2 text-start text-sm font-semibold text-[var(--color-foreground)]";
-  const thClassCompact =
-    "p-2 text-start text-sm font-medium text-[var(--color-foreground)]";
-  return { locale, dir, thClass, thClassCompact };
+  const locale: Locale = DEFAULT_LOCALE;
+  const dir = getDir();
+  return {
+    locale,
+    dir,
+    thClass: "px-4 py-3 text-start text-xs font-medium text-[var(--color-muted)]",
+    thClassCompact: "px-3 py-2 text-start text-xs font-medium text-[var(--color-muted)]",
+  };
 }
 
-export function dateLocaleForUi(locale: Locale): string {
-  return locale === "ar" ? "ar-EG" : "en-GB";
+export function dateLocaleForUi(_locale?: Locale): string {
+  return "ar-EG";
 }

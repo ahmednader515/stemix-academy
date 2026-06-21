@@ -7,7 +7,6 @@ import {
   getAccessibleCoursesForUser,
   countUsersByRole,
   countCourses,
-  getAllQuizAttemptsForAdmin,
   getTotalPlatformEarnings,
   getCoursesWithCountsForCreator,
   getSubscriptionsFeatureEnabled,
@@ -15,11 +14,21 @@ import {
   listStudentStorePurchases,
   userHasActivePlatformSubscription,
   getLatestPlatformSubscriptionExpiry,
+  getReviews,
+  getHomepageSettings,
 } from "@/lib/db";
 import { getServerTranslator } from "@/lib/i18n/server";
+import { pickLocalizedText } from "@/lib/i18n/localized-field";
+import { homepageDefaultForLocale } from "@/lib/homepage-default-for-locale";
+import {
+  HOMEPAGE_DEFAULT_REVIEWS_SECTION_SUBTITLE_AR,
+  HOMEPAGE_DEFAULT_REVIEWS_SECTION_TITLE_AR,
+} from "@/lib/homepage-known-defaults";
+import { HomeReviewsSection } from "@/components/HomeReviewsSection";
 import { MyCoursesSection } from "./MyCoursesSection";
 import { ActivateCodeSection } from "./ActivateCodeSection";
 import { StudentSubscriptionsPanel } from "./StudentSubscriptionsPanel";
+import { CourseRequestPromptSection } from "./CourseRequestPromptSection";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -140,6 +149,17 @@ export default async function DashboardPage() {
                 {t("dashboard.page.activationCodesSubtitle", "For your courses only")}
               </p>
             </Link>
+            <Link
+              href="/dashboard/course-feedback"
+              className="flex min-h-[160px] flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center transition hover:border-[var(--color-primary)]/30"
+            >
+              <h3 className="font-semibold text-[var(--color-foreground)]">
+                {t("dashboard.page.courseFeedbackTitle", "تقييمات وطلبات المحتوى")}
+              </h3>
+              <p className="mt-1 text-sm text-[var(--color-muted)]">
+                {t("dashboard.page.courseFeedbackMeta", "تقييمات الطلاب وطلبات شرح محتوى جديد")}
+              </p>
+            </Link>
           </div>
         </div>
       </div>
@@ -156,7 +176,26 @@ export default async function DashboardPage() {
     let studentHasActiveSub = false;
     let studentSubExpiresIso: string | null = null;
     let storePurchases: Awaited<ReturnType<typeof listStudentStorePurchases>> = [];
+    let studentReviews: Awaited<ReturnType<typeof getReviews>> = [];
+    let reviewsTitle = t("home.reviewsTitleDefault", "ماذا يقول الطلاب");
+    let reviewsSubtitle = t("home.reviewsSubtitleDefault", "تجارب حقيقية من طلاب المنصة");
     try {
+      const [homepageSettings, reviews] = await Promise.all([getHomepageSettings(), getReviews()]);
+      studentReviews = reviews;
+      reviewsTitle = homepageDefaultForLocale(
+        pickLocalizedText(homepageSettings.reviewsSectionTitle, homepageSettings.reviewsSectionTitleEn),
+        HOMEPAGE_DEFAULT_REVIEWS_SECTION_TITLE_AR,
+        "home.reviewsTitleDefault",
+        t,
+        "From our students' opinions",
+      );
+      reviewsSubtitle = homepageDefaultForLocale(
+        pickLocalizedText(homepageSettings.reviewsSectionSubtitle, homepageSettings.reviewsSectionSubtitleEn),
+        HOMEPAGE_DEFAULT_REVIEWS_SECTION_SUBTITLE_AR,
+        "home.reviewsSubtitleDefault",
+        t,
+        "Real experiences from platform students",
+      );
       subscriptionsFeature = await getSubscriptionsFeatureEnabled();
       if (subscriptionsFeature) {
         subscriptionPlansForStudent = await listActiveSubscriptionPlansPublic();
@@ -233,6 +272,8 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
+        <CourseRequestPromptSection />
+
         {subscriptionsFeature ? (
           <StudentSubscriptionsPanel
             plans={subscriptionPlansForStudent}
@@ -290,18 +331,22 @@ export default async function DashboardPage() {
         ) : null}
 
         <MyCoursesSection courses={enrolledCourses} />
+
+        <HomeReviewsSection
+          reviews={studentReviews}
+          title={reviewsTitle}
+          subtitle={reviewsSubtitle}
+          embedded
+        />
       </div>
     );
   }
 
-  const [studentsCount, coursesCount, _quizAttempts, totalEarnings] = await Promise.all([
+  const [studentsCount, coursesCount, totalEarnings] = await Promise.all([
     countUsersByRole("STUDENT"),
     countCourses(),
-    getAllQuizAttemptsForAdmin().catch(() => []),
     getTotalPlatformEarnings(),
   ]);
-
-  void _quizAttempts;
 
   return (
     <div className="space-y-8">
@@ -377,7 +422,7 @@ export default async function DashboardPage() {
               </Link>
             </div>
             {isAdmin ? (
-              <div className="mt-5 rounded-full border border-[var(--color-primary)]/35 bg-[color-mix(in_srgb,var(--color-primary)_14%,var(--color-surface))] px-6 py-3 text-center text-sm font-medium text-[var(--color-foreground)] shadow-[var(--shadow-card)] dark:border-[var(--color-primary)]/45 dark:bg-[color-mix(in_srgb,var(--color-primary)_22%,var(--color-surface))]">
+              <div className="mt-5 rounded-full border border-[var(--color-primary)]/35 bg-[color-mix(in_srgb,var(--color-primary)_14%,var(--color-surface))] px-6 py-3 text-center text-sm font-medium text-[var(--color-foreground)] shadow-[var(--shadow-card)]">
                 <p className="text-sm leading-relaxed">
                   {t(
                     "dashboard.page.paymentMethodsHintBefore",
@@ -457,6 +502,48 @@ export default async function DashboardPage() {
                 </p>
               </Link>
               <Link
+                href="/dashboard/course-requests"
+                className="flex min-h-[200px] flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center transition hover:border-[var(--color-primary)]/30"
+              >
+                <h3 className="font-semibold text-[var(--color-foreground)]">
+                  {t("dashboard.page.courseRequestsTitle", "طلبات الدورات من الطلاب")}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">
+                  {t(
+                    "dashboard.page.courseRequestsMeta",
+                    "عرض طلبات الطلاب لدورات غير متاحة ومراجعتها",
+                  )}
+                </p>
+              </Link>
+              <Link
+                href="/dashboard/course-chats"
+                className="flex min-h-[200px] flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center transition hover:border-[var(--color-primary)]/30"
+              >
+                <h3 className="font-semibold text-[var(--color-foreground)]">
+                  {t("dashboard.page.courseChatsTitle", "محادثات الدورات")}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">
+                  {t(
+                    "dashboard.page.courseChatsMeta",
+                    "تابع محادثات الدورات ورد على أسئلة الطلاب",
+                  )}
+                </p>
+              </Link>
+              <Link
+                href="/dashboard/course-feedback"
+                className="flex min-h-[200px] flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center transition hover:border-[var(--color-primary)]/30"
+              >
+                <h3 className="font-semibold text-[var(--color-foreground)]">
+                  {t("dashboard.page.courseFeedbackTitle", "تقييمات وطلبات المحتوى")}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--color-muted)]">
+                  {t(
+                    "dashboard.page.courseFeedbackMeta",
+                    "تقييمات الطلاب وطلبات شرح محتوى جديد",
+                  )}
+                </p>
+              </Link>
+              <Link
                 href="/dashboard/messages"
                 className="flex min-h-[200px] flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center transition hover:border-[var(--color-primary)]/30"
               >
@@ -476,7 +563,7 @@ export default async function DashboardPage() {
       </div>
 
       {(isAdmin || isAssistant) && (
-        <div className="rounded-full border border-[var(--color-primary)]/35 bg-[color-mix(in_srgb,var(--color-primary)_14%,var(--color-surface))] px-6 py-3 text-center text-sm font-medium text-[var(--color-foreground)] shadow-[var(--shadow-card)] dark:border-[var(--color-primary)]/45 dark:bg-[color-mix(in_srgb,var(--color-primary)_22%,var(--color-surface))]">
+        <div className="rounded-full border border-[var(--color-primary)]/35 bg-[color-mix(in_srgb,var(--color-primary)_14%,var(--color-surface))] px-6 py-3 text-center text-sm font-medium text-[var(--color-foreground)] shadow-[var(--shadow-card)]">
           <p className="text-sm leading-relaxed">
             {t(
               "dashboard.page.balanceEditBannerBefore",

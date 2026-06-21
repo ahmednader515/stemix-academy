@@ -1,18 +1,15 @@
-import { cookies } from "next/headers";
-import { LOCALE_COOKIE_NAME } from "./constants";
-import { getMessages, makeTranslator, normalizeLocale } from "./core";
+import { DEFAULT_LOCALE } from "./constants";
+import { getMessages, makeTranslator } from "./core";
 import type { Locale } from "./types";
 
 export async function getLocaleFromCookie(): Promise<Locale> {
-  const cookieStore = await cookies();
-  const cookieValue = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
-  return normalizeLocale(cookieValue);
+  return DEFAULT_LOCALE;
 }
 
 export async function getServerMessages() {
-  return getMessages(await getLocaleFromCookie());
+  return getMessages();
 }
 
 export async function getServerTranslator() {
-  return makeTranslator(await getLocaleFromCookie());
+  return makeTranslator();
 }

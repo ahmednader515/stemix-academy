@@ -3,9 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddBalanceButton } from "./AddBalanceButton";
+import { BulkWhatsappModal } from "./BulkWhatsappModal";
 import { useT } from "@/components/LocaleProvider";
 import { useDashboardTable } from "@/lib/i18n/dashboard-table";
 import { isValidEgyptWhatsapp, normalizeEgyptWhatsapp } from "@/lib/whatsapp-phone";
+import { studentsToWhatsappRecipients } from "@/lib/whatsapp-bulk";
+import { downloadStudentsExcel } from "@/lib/export-students-excel";
 
 type Course = { id: string; title: string; titleAr: string | null; slug: string };
 
@@ -68,13 +71,15 @@ export function StudentsList({
   const [editRole, setEditRole] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editStudentNumber, setEditStudentNumber] = useState("");
-  const [editGuardianNumber, setEditGuardianNumber] = useState("");
   const [editWhatsappNumber, setEditWhatsappNumber] = useState("");
   const [coursesStudent, setCoursesStudent] = useState<Student | null>(null);
   const [addCourseId, setAddCourseId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [enrollError, setEnrollError] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkWhatsappTarget, setBulkWhatsappTarget] = useState<"selected" | "all" | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const dash = t("dashboard.studentsPage.dash", "—");
   const egp = t("common.egyptianPoundShort", "EGP");
@@ -87,11 +92,81 @@ export function StudentsList({
         s.name.toLowerCase().includes(q) ||
         s.email.toLowerCase().includes(q) ||
         (s.student_number ?? "").toLowerCase().includes(q) ||
-        (s.guardian_number ?? "").toLowerCase().includes(q) ||
         (s.whatsapp_number ?? "").toLowerCase().includes(q) ||
         (s.copyright_code ?? "").toLowerCase().includes(q),
     );
   }, [initialStudents, search]);
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((s) => selectedIds.has(s.id));
+  const selectedFilteredCount = filtered.filter((s) => selectedIds.has(s.id)).length;
+
+  function toggleSelectAllFiltered() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filtered.forEach((s) => next.delete(s.id));
+      } else {
+        filtered.forEach((s) => next.add(s.id));
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectStudent(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const bulkModalStudents = useMemo(() => {
+    if (!bulkWhatsappTarget) return [];
+    if (bulkWhatsappTarget === "all") return filtered;
+    return filtered.filter((s) => selectedIds.has(s.id));
+  }, [bulkWhatsappTarget, filtered, selectedIds]);
+
+  const bulkRecipients = useMemo(() => studentsToWhatsappRecipients(bulkModalStudents), [bulkModalStudents]);
+  const bulkSkippedCount = bulkModalStudents.length - bulkRecipients.length;
+
+  async function handleExportExcel() {
+    if (filtered.length === 0) return;
+    setExporting(true);
+    try {
+      const datePart = new Date().toISOString().slice(0, 10);
+      await downloadStudentsExcel(
+        filtered.map((s) => ({
+          name: s.name,
+          email: s.email,
+          studentNumber: s.student_number ?? dash,
+          whatsapp: s.whatsapp_number ?? dash,
+          copyrightCode: s.copyright_code ?? dash,
+          balance: `${Number(s.balance).toFixed(2)} ${egp}`,
+          coursesCount: s._count.enrollments,
+          enrolledCourses:
+            s.enrollments.length > 0
+              ? s.enrollments.map((e) => e.course.titleAr ?? e.course.title).join("، ")
+              : dash,
+        })),
+        {
+          name: t("dashboard.studentsPage.colName", "Name"),
+          email: t("dashboard.studentsPage.colEmailFull", "Email"),
+          studentNumber: t("dashboard.studentsPage.colStudentNumber", "Student number"),
+          whatsapp: t("dashboard.studentsPage.colWhatsappNumber", "WhatsApp"),
+          copyrightCode: t("dashboard.studentsPage.colCopyright", "Copyright code"),
+          balance: t("dashboard.studentsPage.colBalance", "Balance"),
+          coursesCount: t("dashboard.studentsPage.colCourses", "Courses"),
+          enrolledCourses: t("dashboard.studentsPage.colEnrolledCourses", "Enrolled courses"),
+          sheetName: t("dashboard.studentsPage.exportSheetName", "Students"),
+        },
+        `students-${datePart}.xlsx`,
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function openEdit(s: Student) {
     setEditStudent(s);
@@ -100,7 +175,6 @@ export function StudentsList({
     setEditRole(s.role);
     setEditPassword("");
     setEditStudentNumber(s.student_number ?? "");
-    setEditGuardianNumber(s.guardian_number ?? "");
     setEditWhatsappNumber(s.whatsapp_number ?? "");
     setError("");
   }
@@ -126,12 +200,10 @@ export function StudentsList({
       role?: string;
       password?: string;
       student_number?: string | null;
-      guardian_number?: string | null;
       whatsapp_number?: string | null;
     } = {
       name: editName.trim(),
       student_number: editStudentNumber.trim() || null,
-      guardian_number: editGuardianNumber.trim() || null,
       whatsapp_number: whatsappRaw ? normalizeEgyptWhatsapp(whatsappRaw) : null,
     };
     if (canEditFullProfile) {
@@ -228,7 +300,7 @@ export function StudentsList({
         <label className="block text-sm font-medium text-[var(--color-foreground)]">
           {t(
             "dashboard.studentsPage.searchLabel",
-            "Search by name, email, student number, guardian number, or copyright code",
+            "Search by name, email, student number, WhatsApp, or copyright code",
           )}
         </label>
         <input
@@ -243,14 +315,69 @@ export function StudentsList({
           className="mt-1 w-full max-w-md rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
         />
       </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={toggleSelectAllFiltered}
+          className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-foreground)] hover:border-[var(--color-primary)]"
+        >
+          {allFilteredSelected
+            ? t("dashboard.studentsPage.clearSelection", "Clear selection")
+            : t("dashboard.studentsPage.selectAllFiltered", "Select all shown")}
+        </button>
+        {selectedFilteredCount > 0 ? (
+          <span className="text-sm text-[var(--color-muted)]">
+            {t("dashboard.studentsPage.selectedCount", "{count} selected").replace(
+              "{count}",
+              String(selectedFilteredCount),
+            )}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setBulkWhatsappTarget("selected")}
+          disabled={selectedFilteredCount === 0}
+          className="rounded-[var(--radius-btn)] bg-[#25D366] px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {t("dashboard.studentsPage.bulkWhatsappSelected", "WhatsApp — selected")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setBulkWhatsappTarget("all")}
+          disabled={filtered.length === 0}
+          className="rounded-[var(--radius-btn)] border border-[#25D366] bg-white px-3 py-2 text-sm font-semibold text-[#128C7E] hover:bg-[#25D366]/10 disabled:opacity-50"
+        >
+          {t("dashboard.studentsPage.bulkWhatsappAll", "WhatsApp — all shown")}
+        </button>
+        <button
+          type="button"
+          onClick={handleExportExcel}
+          disabled={filtered.length === 0 || exporting}
+          className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-foreground)] hover:border-[var(--color-primary)] disabled:opacity-50"
+        >
+          {exporting
+            ? t("dashboard.studentsPage.exportingExcel", "جاري التصدير...")
+            : t("dashboard.studentsPage.exportExcel", "تصدير Excel")}
+        </button>
+      </div>
+
       <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)]">
         <table dir={dir} className="w-full">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-background)]/50">
+              <th className={`${thClass} w-10`}>
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAllFiltered}
+                  aria-label={t("dashboard.studentsPage.selectAllFiltered", "Select all shown")}
+                  className="h-4 w-4 rounded border-[var(--color-border)]"
+                />
+              </th>
               <th className={thClass}>{t("dashboard.studentsPage.colName", "Name")}</th>
               <th className={thClass}>{t("dashboard.studentsPage.colEmail", "Email")}</th>
               <th className={thClass}>{t("dashboard.studentsPage.colStudentNumber", "Student number")}</th>
-              <th className={thClass}>{t("dashboard.studentsPage.colGuardianNumber", "Guardian number")}</th>
               <th className={thClass}>{t("dashboard.studentsPage.colWhatsappNumber", "WhatsApp")}</th>
               <th className={thClass}>{t("dashboard.studentsPage.colCopyright", "Copyright code")}</th>
               <th className={thClass}>{t("dashboard.studentsPage.colBalance", "Balance")}</th>
@@ -267,10 +394,18 @@ export function StudentsList({
           <tbody>
             {filtered.map((s) => (
               <tr key={s.id} className="border-b border-[var(--color-border)] last:border-0">
+                <td className="p-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(s.id)}
+                    onChange={() => toggleSelectStudent(s.id)}
+                    aria-label={t("dashboard.studentsPage.selectStudent", "Select {name}").replace("{name}", s.name)}
+                    className="h-4 w-4 rounded border-[var(--color-border)]"
+                  />
+                </td>
                 <td className="p-3 font-medium text-[var(--color-foreground)]">{s.name}</td>
                 <td className="p-3 text-[var(--color-muted)]">{s.email}</td>
                 <td className="p-3 text-[var(--color-foreground)]">{s.student_number ?? dash}</td>
-                <td className="p-3 text-[var(--color-foreground)]">{s.guardian_number ?? dash}</td>
                 <td className="p-3 text-[var(--color-foreground)]">{s.whatsapp_number ?? dash}</td>
                 <td className="p-3 font-mono text-sm text-[var(--color-foreground)]">
                   {s.copyright_code ?? dash}
@@ -327,7 +462,7 @@ export function StudentsList({
               {t("dashboard.studentsPage.coursesModalTitlePrefix", "Manage courses —")} {coursesStudent.name}
             </h3>
             {enrollError ? (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{enrollError}</p>
+              <p className="mt-2 text-sm text-red-600">{enrollError}</p>
             ) : null}
             <div className="mt-4 space-y-3">
               <p className="text-sm font-medium text-[var(--color-foreground)]">
@@ -404,6 +539,14 @@ export function StudentsList({
         </div>
       )}
 
+      {bulkWhatsappTarget ? (
+        <BulkWhatsappModal
+          recipients={bulkRecipients}
+          skippedCount={bulkSkippedCount}
+          onClose={() => setBulkWhatsappTarget(null)}
+        />
+      ) : null}
+
       {editStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div
@@ -414,7 +557,7 @@ export function StudentsList({
               {t("dashboard.studentsPage.editStudentTitle", "Edit student")}
             </h3>
             <form onSubmit={handleSaveEdit} className="mt-4 space-y-3">
-              {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
               {editStudent.copyright_code ? (
                 <p className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-muted)]">
                   <span className="font-medium text-[var(--color-foreground)]">
@@ -453,21 +596,6 @@ export function StudentsList({
                   placeholder={t(
                     "dashboard.studentsPage.studentNumberPlaceholder",
                     "Student number",
-                  )}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-foreground)]">
-                  {t("dashboard.studentsPage.guardianNumberLabel", "Guardian number")}
-                </label>
-                <input
-                  type="text"
-                  value={editGuardianNumber}
-                  onChange={(e) => setEditGuardianNumber(e.target.value)}
-                  className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
-                  placeholder={t(
-                    "dashboard.studentsPage.guardianNumberPlaceholder",
-                    "Guardian number",
                   )}
                 />
               </div>

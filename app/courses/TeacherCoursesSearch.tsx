@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CourseCard } from "@/components/CourseCard";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 
 type CategoryShape = {
   slug?: string;
@@ -94,33 +94,22 @@ export function courseMatchesSearchQuery(course: TeacherCourseListItem, rawQuery
 
 function toCourseCardProps(c: TeacherCourseListItem) {
   const cat = c.category;
+  const row = c as TeacherCourseListItem & { creatorName?: string | null };
   return {
     id: c.id,
     title: c.title,
     titleAr: c.titleAr ?? c.title_ar ?? null,
     slug: c.slug ?? null,
-    shortDesc: c.shortDesc ?? c.short_desc ?? null,
-    shortDescEn: c.shortDescEn ?? c.short_desc_en ?? null,
     imageUrl: c.imageUrl ?? c.image_url ?? null,
-    price: c.price as number | string | { toNumber?: () => number } | undefined,
-    courseRating: (c.courseRating ?? c.course_rating ?? null) as
-      | number
-      | string
-      | { toNumber?: () => number }
-      | null,
-    courseRatingCount: (c.courseRatingCount ?? c.course_rating_count ?? null) as
-      | number
-      | string
-      | { toNumber?: () => number }
-      | null,
-    duration: c.duration ?? null,
-    level: c.level ?? null,
+    price: c.price as number | string | { toNumber?: () => number } | null | undefined,
     category: cat
       ? {
           name: cat.name ?? "",
           nameAr: cat.nameAr ?? cat.name_ar ?? null,
         }
       : null,
+    instructorName: row.creatorName ?? null,
+    institutionName: cat?.nameAr?.trim() || cat?.name?.trim() || null,
   };
 }
 
@@ -128,12 +117,13 @@ export function TeacherCoursesSearch({
   courses,
   /** عند false: شبكة واحدة (مثل «جميع الدورات») مع نفس شريط البحث */
   groupByCategory = true,
+  initialQuery = "",
 }: {
   courses: TeacherCourseListItem[];
   groupByCategory?: boolean;
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
-  const locale = useLocale();
+  const [query, setQuery] = useState(initialQuery);
   const t = useT();
 
   const filtered = useMemo(
@@ -156,13 +146,9 @@ export function TeacherCoursesSearch({
         <input
           id={inputId}
           type="search"
-          dir={locale === "ar" ? "rtl" : "ltr"}
+          dir={"rtl"}
           autoComplete="off"
-          placeholder={
-            locale === "ar"
-              ? t("courses.searchPlaceholder", "ابحث باسم الدورة أو القسم…")
-              : t("courses.searchPlaceholder", "Search by course or category…")
-          }
+          placeholder={t("courses.searchPlaceholder", "ابحث باسم الدورة أو القسم…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full max-w-xl rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-[var(--color-foreground)] shadow-[var(--shadow-card)] placeholder:text-[var(--color-muted)] focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25"
@@ -184,7 +170,7 @@ export function TeacherCoursesSearch({
               <h2 className="mb-4 text-xl font-semibold text-[var(--color-foreground)]">
                 {group.label}
               </h2>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {group.courses.map((course) => (
                   <CourseCard key={course.id} course={toCourseCardProps(course)} />
                 ))}
@@ -193,7 +179,7 @@ export function TeacherCoursesSearch({
           ))}
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {filtered.map((course) => (
             <CourseCard key={course.id} course={toCourseCardProps(course)} />
           ))}

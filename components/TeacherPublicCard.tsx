@@ -28,13 +28,13 @@ export function TeacherPublicCard({
   return (
     <article
       dir="rtl"
-      className="group flex w-full max-w-[16.5rem] flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-b from-[var(--color-primary)]/10 via-[var(--color-surface)] to-[var(--color-surface)] p-4 shadow-[var(--shadow-card)] ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:border-[var(--color-primary)]/45 hover:shadow-[var(--shadow-hover)] sm:max-w-[17.25rem]"
+      className="group flex w-full max-w-[16.5rem] flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-b from-[var(--color-primary)]/10 via-[var(--color-surface)] to-[var(--color-surface)] shadow-[var(--shadow-card)] ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:border-[var(--color-primary)]/45 hover:shadow-[var(--shadow-hover)] sm:max-w-[17.25rem]"
     >
       <Link
         href={profileHref}
         className="block shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
       >
-        <div className="relative mx-auto aspect-square w-full max-w-[12.5rem] shrink-0 overflow-hidden rounded-xl bg-[var(--color-background)]/40 ring-1 ring-black/10">
+        <div className="relative aspect-square w-full shrink-0 overflow-hidden bg-[var(--color-background)]/40">
           {teacherAvatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -50,7 +50,7 @@ export function TeacherPublicCard({
             </div>
           )}
         </div>
-        <div className="mt-5 flex flex-col items-center pb-0.5 pt-1 text-center">
+        <div className="flex flex-col items-center px-4 pb-0.5 pt-4 text-center">
           <TitleTag className="line-clamp-2 text-lg font-bold leading-snug text-[var(--color-foreground)] sm:text-xl">
             {name}
           </TitleTag>
@@ -60,7 +60,7 @@ export function TeacherPublicCard({
         </div>
       </Link>
 
-      <div className="mt-4 min-h-[3.25rem] flex-1 border-t border-[var(--color-border)] pt-3">
+      <div className="mt-4 min-h-[3.25rem] flex-1 border-t border-[var(--color-border)] px-4 pb-4 pt-3">
         {courses.length > 0 ? (
           <>
             <p className="mb-2 text-center text-[0.7rem] font-semibold uppercase tracking-wide text-[var(--color-muted)]/80">

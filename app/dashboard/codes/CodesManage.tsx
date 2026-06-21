@@ -299,12 +299,12 @@ export function CodesManage({ courseOptions }: { courseOptions: { id: string; ti
   return (
     <div className="mt-6 space-y-6">
       {error && (
-        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">
           {error}
         </div>
       )}
       {copySuccess && (
-        <div className="rounded-[var(--radius-btn)] bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+        <div className="rounded-[var(--radius-btn)] bg-green-500/10 px-3 py-2 text-sm text-green-600">
           {t(`${M}.copiedToast`)}
         </div>
       )}
@@ -570,14 +570,14 @@ export function CodesManage({ courseOptions }: { courseOptions: { id: string; ti
                     </td>
                     <td className="p-2">
                       {row.usedAt ? (
-                        <span className="text-amber-600 dark:text-amber-400">{t(`${M}.statusUsed`)}</span>
+                        <span className="text-amber-600">{t(`${M}.statusUsed`)}</span>
                       ) : (
-                        <span className="text-green-600 dark:text-green-400">{t(`${M}.statusUnused`)}</span>
+                        <span className="text-green-600">{t(`${M}.statusUnused`)}</span>
                       )}
                     </td>
                     <td className="p-2">
                       {isNewestBatch(row.createdAt) ? (
-                        <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-800 dark:bg-green-900/40 dark:text-green-300">{t(`${M}.batchNew`)}</span>
+                        <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-800">{t(`${M}.batchNew`)}</span>
                       ) : (
                         <span className="rounded bg-[var(--color-muted)]/20 px-1.5 py-0.5 text-xs text-[var(--color-muted)]">{t(`${M}.batchOld`)}</span>
                       )}

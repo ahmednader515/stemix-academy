@@ -194,12 +194,12 @@ export function HomeworkSubmissionsList({ allowDeleteAll = true }: { allowDelete
       </form>
 
       {loadError && (
-        <p className="rounded-[var(--radius-btn)] bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-400">
+        <p className="rounded-[var(--radius-btn)] bg-red-500/10 px-4 py-2 text-sm text-red-600">
           {loadError}
         </p>
       )}
       {deleteError && (
-        <p className="rounded-[var(--radius-btn)] bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-400">
+        <p className="rounded-[var(--radius-btn)] bg-red-500/10 px-4 py-2 text-sm text-red-600">
           {deleteError}
         </p>
       )}
@@ -209,7 +209,7 @@ export function HomeworkSubmissionsList({ allowDeleteAll = true }: { allowDelete
             type="button"
             onClick={handleDeleteSelected}
             disabled={selectedIds.size === 0 || deleteLoading}
-            className="rounded-[var(--radius-btn)] border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 disabled:opacity-50"
+            className="rounded-[var(--radius-btn)] border border-red-500/50 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 disabled:opacity-50"
           >
             {deleteLoading ? t(`${L}.deleteSelectedBusy`) : fillMessage(t(`${L}.deleteSelected`), { count: selectedIds.size })}
           </button>

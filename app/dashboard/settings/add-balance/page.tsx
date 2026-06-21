@@ -21,7 +21,7 @@ export default async function DashboardAddBalanceSettingsPage() {
       <p className="mt-1 text-sm text-[var(--color-muted)]">
         {t(
           "dashboard.addBalanceSettingsDescription",
-          "Edit wallet numbers and all student-facing text for the add-balance page in both Arabic and English.",
+          "Edit wallet numbers and all student-facing text for the add-balance page.",
         )}
       </p>
       <AddBalanceSettingsForm initialSettings={settings} />

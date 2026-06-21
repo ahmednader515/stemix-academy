@@ -572,6 +572,47 @@ CREATE TABLE IF NOT EXISTS "LessonRating" (
 CREATE INDEX IF NOT EXISTS "LessonRating_lesson_id_idx" ON "LessonRating"(lesson_id);
 CREATE INDEX IF NOT EXISTS "LessonRating_course_id_idx" ON "LessonRating"(course_id);
 CREATE INDEX IF NOT EXISTS "LessonRating_user_id_idx" ON "LessonRating"(user_id);
+ALTER TABLE "LessonRating" ADD COLUMN IF NOT EXISTS feedback TEXT;
+
+-- ----- CourseRating (تقييم عام للدورة + ملاحظات) -----
+CREATE TABLE IF NOT EXISTS "CourseRating" (
+  id         TEXT PRIMARY KEY,
+  course_id  TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+  user_id    TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  rating     INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  feedback   TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT course_rating_unique_course_user UNIQUE (course_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS "CourseRating_course_id_idx" ON "CourseRating"(course_id);
+CREATE INDEX IF NOT EXISTS "CourseRating_user_id_idx" ON "CourseRating"(user_id);
+
+-- ----- CourseContentRequest (طلب شرح محتوى جديد داخل دورة) -----
+CREATE TABLE IF NOT EXISTS "CourseContentRequest" (
+  id              TEXT PRIMARY KEY,
+  course_id       TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+  user_id         TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  description     TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed')),
+  reviewed_at     TIMESTAMPTZ,
+  reviewed_by_id  TEXT REFERENCES "User"(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "CourseContentRequest_course_id_idx" ON "CourseContentRequest"(course_id);
+CREATE INDEX IF NOT EXISTS "CourseContentRequest_user_id_idx" ON "CourseContentRequest"(user_id);
+CREATE INDEX IF NOT EXISTS "CourseContentRequest_status_idx" ON "CourseContentRequest"(status);
+CREATE INDEX IF NOT EXISTS "CourseContentRequest_created_at_idx" ON "CourseContentRequest"(created_at);
+
+CREATE TABLE IF NOT EXISTS "CourseContentRequestAttachment" (
+  id          TEXT PRIMARY KEY,
+  request_id  TEXT NOT NULL REFERENCES "CourseContentRequest"(id) ON DELETE CASCADE,
+  file_url    TEXT NOT NULL,
+  file_name   TEXT,
+  file_type   TEXT NOT NULL CHECK (file_type IN ('pdf', 'image')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "CourseContentRequestAttachment_request_id_idx" ON "CourseContentRequestAttachment"(request_id);
 
 -- ============================================================
 -- 21) أعمدة HomepageSetting الإضافية (ensure-homepage-setting-columns + add-homepage-*)
@@ -632,6 +673,74 @@ UPDATE "HomepageSetting"
 SET platform_news_section_title = 'أخبار المنصة', updated_at = NOW()
 WHERE id = 'default' AND platform_news_section_title IS NULL;
 
+-- ----- CourseRequest (طلبات الطلاب لدورات غير متاحة) -----
+CREATE TABLE IF NOT EXISTS "CourseRequest" (
+  id                  TEXT PRIMARY KEY,
+  user_id             TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  student_name        TEXT NOT NULL,
+  student_email       TEXT NOT NULL,
+  student_phone       TEXT,
+  student_whatsapp    TEXT,
+  course_title        TEXT NOT NULL,
+  course_subject      TEXT,
+  course_description  TEXT NOT NULL,
+  additional_notes    TEXT,
+  status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed')),
+  reviewed_at         TIMESTAMPTZ,
+  reviewed_by_id      TEXT REFERENCES "User"(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "CourseRequest_user_id_idx" ON "CourseRequest"(user_id);
+CREATE INDEX IF NOT EXISTS "CourseRequest_status_idx" ON "CourseRequest"(status);
+CREATE INDEX IF NOT EXISTS "CourseRequest_created_at_idx" ON "CourseRequest"(created_at);
+
+CREATE TABLE IF NOT EXISTS "CourseRequestAttachment" (
+  id          TEXT PRIMARY KEY,
+  request_id  TEXT NOT NULL REFERENCES "CourseRequest"(id) ON DELETE CASCADE,
+  file_url    TEXT NOT NULL,
+  file_name   TEXT,
+  file_type   TEXT NOT NULL CHECK (file_type IN ('pdf', 'image')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "CourseRequestAttachment_request_id_idx" ON "CourseRequestAttachment"(request_id);
+
+-- ----- Course chat (محادثة جماعية + خاصة لكل دورة) -----
+CREATE TABLE IF NOT EXISTS "CourseGroupMessage" (
+  id            TEXT PRIMARY KEY,
+  course_id     TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+  sender_id     TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  message_type  TEXT NOT NULL CHECK (message_type IN ('text', 'image', 'file')),
+  content       TEXT,
+  file_url      TEXT,
+  file_name     TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "CourseGroupMessage_course_created_idx" ON "CourseGroupMessage"(course_id, created_at);
+
+CREATE TABLE IF NOT EXISTS "CoursePrivateConversation" (
+  id              TEXT PRIMARY KEY,
+  course_id       TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+  staff_user_id   TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  student_user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(course_id, student_user_id)
+);
+CREATE INDEX IF NOT EXISTS "CoursePrivateConversation_staff_idx" ON "CoursePrivateConversation"(staff_user_id);
+CREATE INDEX IF NOT EXISTS "CoursePrivateConversation_course_idx" ON "CoursePrivateConversation"(course_id);
+
+CREATE TABLE IF NOT EXISTS "CoursePrivateMessage" (
+  id              TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL REFERENCES "CoursePrivateConversation"(id) ON DELETE CASCADE,
+  sender_id       TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  message_type    TEXT NOT NULL CHECK (message_type IN ('text', 'image', 'file')),
+  content         TEXT,
+  file_url        TEXT,
+  file_name       TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS "CoursePrivateMessage_conv_created_idx" ON "CoursePrivateMessage"(conversation_id, created_at);
+
 UPDATE "HomepageSetting"
 SET
   add_balance_title = COALESCE(add_balance_title, 'إضافة رصيد'),
@@ -644,3 +753,15 @@ SET
   add_balance_whatsapp_button_text = COALESCE(add_balance_whatsapp_button_text, 'إرسال صورة التأكيد على واتساب'),
   add_balance_waiting_note = COALESCE(add_balance_waiting_note, 'بعد إرسال صورة التأكيد، يكون رصيدك في انتظار وصوله إلى حسابك. سيتم إضافة الرصيد خلال أقرب وقت.')
 WHERE id = 'default';
+
+-- Performance indexes (safe to re-run)
+CREATE INDEX IF NOT EXISTS "User_role_idx" ON "User"(role);
+CREATE INDEX IF NOT EXISTS "Course_is_published_order_idx" ON "Course"(is_published, "order", created_at DESC);
+CREATE INDEX IF NOT EXISTS "Course_created_by_published_idx" ON "Course"(created_by_id, is_published);
+CREATE INDEX IF NOT EXISTS "Category_slug_idx" ON "Category"(slug);
+CREATE INDEX IF NOT EXISTS "ActivationCode_used_by_user_idx" ON "ActivationCode"(used_by_user_id) WHERE used_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "QuizAttempt_quiz_id_idx" ON "QuizAttempt"(quiz_id);
+CREATE INDEX IF NOT EXISTS "Payment_course_id_idx" ON "Payment"(course_id);
+CREATE INDEX IF NOT EXISTS "Payment_user_id_idx" ON "Payment"(user_id);
+CREATE INDEX IF NOT EXISTS "Conversation_updated_at_idx" ON "Conversation"(updated_at DESC);
+CREATE INDEX IF NOT EXISTS "HomeworkSubmission_user_course_idx" ON "HomeworkSubmission"(user_id, course_id);

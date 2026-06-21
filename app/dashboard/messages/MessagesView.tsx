@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { dateLocaleForUi } from "@/lib/i18n/dashboard-table";
 
 type ConversationItem = {
@@ -39,9 +39,8 @@ export function MessagesView({
   userName: string;
 }) {
   const t = useT();
-  const locale = useLocale();
   const V = "dashboard.messagesView";
-  const dateLocale = dateLocaleForUi(locale);
+  const dateLocale = dateLocaleForUi();
 
   function roleLabel(role: string) {
     return t(`header.role.${role}`, role);

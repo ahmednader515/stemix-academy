@@ -172,7 +172,7 @@ export function QuizTake({ quiz }: { quiz: QuizApiPayload }) {
     <div className="mt-8 space-y-8">
       {toastMessage && (
         <div
-          className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-[var(--radius-btn)] border border-amber-500/50 bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-800 dark:text-amber-200 shadow-lg"
+          className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-[var(--radius-btn)] border border-amber-500/50 bg-amber-500/15 px-4 py-2 text-sm font-medium text-amber-800 shadow-lg"
           role="alert"
         >
           {toastMessage}
@@ -197,7 +197,7 @@ export function QuizTake({ quiz }: { quiz: QuizApiPayload }) {
             ) : null}
           </p>
           {!canAttempt ? (
-            <p className="mt-4 rounded-[var(--radius-btn)] border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+            <p className="mt-4 rounded-[var(--radius-btn)] border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-600">
               {t("quiz.cannotAttempt", "You cannot start a new attempt for this quiz due to attempt limits.")}
             </p>
           ) : null}

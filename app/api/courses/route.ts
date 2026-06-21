@@ -1,3 +1,4 @@
+import { revalidatePublicCatalogCache } from "@/lib/revalidate-public-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -68,12 +69,12 @@ export async function POST(request: NextRequest) {
   }
 
   const titleAr = (body.titleAr ?? body.title)?.trim();
-  const titleEn = (body.titleEn ?? body.title)?.trim();
+  const titleEn = (body.titleEn ?? body.titleAr ?? body.title)?.trim();
   const slug = body.slug?.trim();
   const descriptionAr = (body.descriptionAr ?? body.description)?.trim();
-  const descriptionEn = (body.descriptionEn ?? "").trim();
-  if (!titleAr || !titleEn || !slug || !descriptionAr || !descriptionEn) {
-    return NextResponse.json({ error: "العنوان والوصف بالعربية والإنجليزية مطلوبة" }, { status: 400 });
+  const descriptionEn = (body.descriptionEn ?? "").trim() || null;
+  if (!titleAr || !slug || !descriptionAr) {
+    return NextResponse.json({ error: "العنوان والوصف بالعربية مطلوبان" }, { status: 400 });
   }
 
   const exists = await courseExistsBySlug(slug.trim());
@@ -83,19 +84,19 @@ export async function POST(request: NextRequest) {
 
   let categoryId: string | null = null;
   const catNameAr = (body.categoryNameAr ?? body.categoryName)?.trim();
-  const catNameEn = (body.categoryNameEn ?? body.categoryName)?.trim();
+  const catNameEn = (body.categoryNameEn ?? "").trim();
   const role = session.user.role;
   if (catNameAr || catNameEn) {
     let cat =
       (catNameAr ? await findCategoryByNameForDashboard(catNameAr, session.user.id, role) : null) ??
       (catNameEn ? await findCategoryByNameForDashboard(catNameEn, session.user.id, role) : null);
     if (!cat) {
-      const slugBase = (catNameEn || catNameAr || "cat");
+      const slugBase = catNameAr || catNameEn || "cat";
       const slugCat = slugBase.toLowerCase().replace(/\s+/g, "-").replace(/[^\w\u0600-\u06FF-]+/g, "") || "cat";
       const uniqueSlug = slugCat + "-" + Date.now();
       cat = await createCategory({
-        name: catNameEn || catNameAr || slugBase,
-        name_ar: catNameAr || catNameEn || slugBase,
+        name: catNameAr || slugBase,
+        name_ar: catNameAr || slugBase,
         slug: uniqueSlug,
         created_by_id: session.user.id,
       });
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
   let course;
   try {
     course = await createCourse({
-      title: titleEn,
+      title: titleEn || titleAr,
       title_ar: titleAr,
       slug,
       description: descriptionAr,
@@ -203,5 +204,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  revalidatePublicCatalogCache();
   return NextResponse.json({ id: course.id, title: course.title, slug: course.slug });
 }

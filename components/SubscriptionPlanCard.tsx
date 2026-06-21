@@ -13,9 +13,6 @@ export type SubscriptionPlanCardData = {
   price: number;
 };
 
-const TEAL = "#14b8a6";
-const SURFACE = "#0b111e";
-
 function durationLabel(kind: string): string {
   if (kind === "week") return "أسبوع";
   if (kind === "month") return "شهر";
@@ -48,21 +45,20 @@ export function SubscriptionPlanCard({
   isLoggedIn,
   hasActivePlatformSubscription = false,
   activePlatformSubscriptionExpiresAtIso = null,
+  loginCallbackUrl = "/dashboard",
 }: {
   plan: SubscriptionPlanCardData;
   isStudent: boolean;
   isLoggedIn: boolean;
-  /** للطالب: هل لديه اشتراك منصة نشط (أي باقة) */
   hasActivePlatformSubscription?: boolean;
-  /** تاريخ انتهاء الاشتراك النشط (ISO) */
   activePlatformSubscriptionExpiresAtIso?: string | null;
+  loginCallbackUrl?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [showAddBalanceLink, setShowAddBalanceLink] = useState(false);
-  /** تاريخ انتهاء الاشتراك بعد نجاح الشراء (ISO) */
   const [successExpiresAt, setSuccessExpiresAt] = useState<string | null>(null);
 
   const activeSubExpiryFormatted =
@@ -130,55 +126,52 @@ export function SubscriptionPlanCard({
   }
 
   const priceStr = Number(plan.price).toFixed(0);
-  const loginHref = `/login?callbackUrl=${encodeURIComponent("/")}`;
+  const loginHref = `/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`;
 
   return (
     <article
-      className="subscription-plan-card mx-auto flex max-w-sm flex-col overflow-hidden rounded-2xl shadow-xl ring-1 ring-white/10"
-      style={{ background: SURFACE }}
+      className="subscription-plan-card mx-auto flex max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
       dir="rtl"
     >
-      {/* منطقة الصورة */}
-      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900">
+      <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-slate-100">
         {plan.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={plan.imageUrl} alt="" className="h-full w-full object-cover" />
-        ) : null}
+        ) : (
+          <div className="flex h-full items-center justify-center bg-gradient-to-br from-[var(--color-primary)]/15 to-slate-100 text-4xl opacity-40">
+            📦
+          </div>
+        )}
         {isStudent && hasActivePlatformSubscription ? (
           <div
-            className="pointer-events-none absolute left-3 top-3 z-[1] rounded-full border border-emerald-400/50 bg-emerald-600/90 px-3 py-1 text-center text-[11px] font-bold text-white shadow-md sm:text-xs"
+            className="pointer-events-none absolute left-3 top-3 z-[1] rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-center text-[11px] font-bold text-emerald-800 shadow-sm sm:text-xs"
             aria-hidden
           >
             مشترك
           </div>
         ) : null}
         <div
-          className="pointer-events-none absolute right-0 top-0 z-[1] origin-top-right translate-x-1/4 -translate-y-1/4 rotate-45 bg-fuchsia-500 px-10 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-white shadow-md"
+          className="pointer-events-none absolute right-0 top-0 z-[1] origin-top-right translate-x-1/4 -translate-y-1/4 rotate-45 bg-[var(--color-primary)] px-10 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-white shadow-md"
           aria-hidden
         >
           اشتراك
         </div>
       </div>
 
-      {/* جسم الكارت — يتداخل مع الصورة */}
-      <div
-        className="relative z-[2] -mt-8 rounded-t-3xl border border-white/10 px-5 pb-6 pt-12 sm:px-6 sm:pt-14"
-        style={{ background: SURFACE }}
-      >
-        <div
-          className="absolute left-1/2 top-0 z-[3] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border-2 border-amber-500/50 bg-gradient-to-b from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg sm:px-8 sm:py-3 sm:text-base"
-        >
+      <div className="relative z-[2] -mt-8 rounded-t-3xl border border-[var(--color-border)] border-b-0 bg-[var(--color-surface)] px-5 pb-6 pt-12 sm:px-6 sm:pt-14">
+        <div className="absolute left-1/2 top-0 z-[3] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border-2 border-amber-400 bg-gradient-to-b from-amber-400 to-amber-500 px-6 py-2.5 text-sm font-bold text-white shadow-md sm:px-8 sm:py-3 sm:text-base">
           {durationLabel(plan.durationKind)}
         </div>
 
         <div className="flex flex-row items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <h3 className="text-right text-xl font-bold leading-snug text-white">{plan.name}</h3>
+            <h3 className="text-right text-xl font-bold leading-snug text-[var(--color-foreground)]">{plan.name}</h3>
             {isStudent && hasActivePlatformSubscription ? (
-              <p className="text-right text-xs leading-relaxed text-emerald-300/95">
+              <p className="text-right text-xs leading-relaxed text-emerald-700">
                 {activeSubExpiryFormatted ? (
                   <>
                     أنت مشترك في اشتراك المنصة حتى{" "}
-                    <span className="font-semibold text-emerald-100">{activeSubExpiryFormatted}</span>
+                    <span className="font-semibold text-emerald-800">{activeSubExpiryFormatted}</span>
                     . لا يلزم دفع هذه الباقة مرة أخرى قبل انتهاء المدة.
                   </>
                 ) : (
@@ -191,16 +184,14 @@ export function SubscriptionPlanCard({
             {isStudent ? (
               <Link
                 href="/courses"
-                className="rounded-xl border-2 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-white/5"
-                style={{ borderColor: TEAL }}
+                className="rounded-xl border-2 border-[var(--color-primary)] px-3 py-2 text-center text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/5"
               >
                 الكورسات
               </Link>
             ) : (
               <Link
                 href={loginHref}
-                className="rounded-xl border-2 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-white/5"
-                style={{ borderColor: TEAL }}
+                className="rounded-xl border-2 border-[var(--color-primary)] px-3 py-2 text-center text-xs font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/5"
               >
                 تسجيل الدخول
               </Link>
@@ -210,12 +201,11 @@ export function SubscriptionPlanCard({
                 type="button"
                 onClick={purchase}
                 disabled={loading}
-                className={`min-w-[9.5rem] rounded-xl px-5 py-3.5 text-center text-sm font-bold shadow-lg transition sm:min-w-[10.5rem] sm:px-6 sm:py-4 sm:text-base ${
+                className={`min-w-[9.5rem] rounded-xl px-5 py-3.5 text-center text-sm font-bold shadow-md transition sm:min-w-[10.5rem] sm:px-6 sm:py-4 sm:text-base ${
                   hasActivePlatformSubscription
-                    ? "border border-emerald-400/40 bg-emerald-900/40 text-emerald-100 hover:bg-emerald-900/55"
-                    : "text-white hover:opacity-90 disabled:opacity-50"
+                    ? "border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                    : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
                 }`}
-                style={hasActivePlatformSubscription ? undefined : { backgroundColor: TEAL }}
               >
                 {loading
                   ? "جاري الشراء…"
@@ -224,14 +214,13 @@ export function SubscriptionPlanCard({
                     : "اشتر الآن"}
               </button>
             ) : isLoggedIn ? (
-              <span className="rounded-xl bg-white/10 px-3 py-2 text-center text-[10px] text-neutral-400">
+              <span className="rounded-xl bg-slate-100 px-3 py-2 text-center text-[10px] text-[var(--color-muted)]">
                 للطلاب فقط
               </span>
             ) : (
               <Link
                 href={loginHref}
-                className="rounded-xl px-3 py-2 text-center text-xs font-semibold text-white shadow-md transition hover:opacity-90"
-                style={{ backgroundColor: TEAL }}
+                className="rounded-xl bg-[var(--color-primary)] px-3 py-2 text-center text-xs font-semibold text-white shadow-md transition hover:bg-[var(--color-primary-hover)]"
               >
                 اشتر كطالب
               </Link>
@@ -240,64 +229,61 @@ export function SubscriptionPlanCard({
         </div>
 
         <div className="my-4 space-y-2">
-          <div className="h-px w-full opacity-80" style={{ backgroundColor: TEAL }} />
-          <div className="h-px w-full bg-white/10" />
+          <div className="h-px w-full bg-[var(--color-primary)]/40" />
+          <div className="h-px w-full bg-[var(--color-border)]" />
         </div>
 
         {plan.description?.trim() ? (
-          <p className="text-right text-sm leading-relaxed text-neutral-400">{plan.description.trim()}</p>
+          <p className="text-right text-sm leading-relaxed text-[var(--color-muted)]">{plan.description.trim()}</p>
         ) : (
-          <p className="text-right text-sm text-neutral-500">وصول لجميع الكورسات المدفوعة المنشورة طوال مدة الاشتراك.</p>
+          <p className="text-right text-sm text-[var(--color-muted)]">
+            وصول لجميع الكورسات المدفوعة المنشورة طوال مدة الاشتراك.
+          </p>
         )}
 
-        <div className="mt-6 flex flex-row items-end justify-between gap-3 border-t border-white/10 pt-4">
-          <div className="space-y-1 text-right text-xs text-neutral-400">
+        <div className="mt-6 flex flex-row items-end justify-between gap-3 border-t border-[var(--color-border)] pt-4">
+          <div className="space-y-1 text-right text-xs text-[var(--color-muted)]">
             <p className="flex items-center justify-end gap-1.5">
               <span>وصول شامل للمدفوع</span>
-              <span className="text-neutral-500" aria-hidden>
-                ◷
-              </span>
+              <span aria-hidden>◷</span>
             </p>
             <p className="flex items-center justify-end gap-1.5">
               <span>جميع الأقسام</span>
-              <span className="text-neutral-500" aria-hidden>
-                ▤
-              </span>
+              <span aria-hidden>▤</span>
             </p>
           </div>
-          <div
-            className="flex shrink-0 items-stretch overflow-hidden rounded-lg text-sm font-bold shadow-md ring-1 ring-white/10"
-            style={{ backgroundColor: TEAL }}
-          >
-            <span className="flex items-center px-2.5 py-2 text-white">ج.م</span>
-            <span className="flex items-center bg-black px-3 py-2 text-white tabular-nums">{priceStr}</span>
+          <div className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[var(--color-border)] text-sm font-bold shadow-sm">
+            <span className="flex items-center bg-[var(--color-primary)] px-2.5 py-2 text-white">ج.م</span>
+            <span className="flex items-center bg-[var(--color-surface)] px-3 py-2 tabular-nums text-[var(--color-foreground)]">
+              {priceStr}
+            </span>
           </div>
         </div>
 
         {infoMessage ? (
-          <div className="mt-4 rounded-xl border border-amber-500/45 bg-amber-950/35 p-3 text-center text-sm leading-relaxed text-amber-100">
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-sm leading-relaxed text-amber-900">
             {infoMessage}
           </div>
         ) : null}
 
         {successExpiresAt ? (
           <div
-            className="mt-4 space-y-2 rounded-xl border border-emerald-500/45 bg-emerald-950/40 p-4 text-center"
+            className="mt-4 space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center"
             role="status"
           >
-            <p className="text-base font-bold text-emerald-200">تم الاشتراك بنجاح</p>
-            <p className="text-sm leading-relaxed text-emerald-100/95">
+            <p className="text-base font-bold text-emerald-800">تم الاشتراك بنجاح</p>
+            <p className="text-sm leading-relaxed text-emerald-700">
               موعد انتهاء اشتراكك الحالي (وبداية دورة التجديد التالية إن رغبت بالتمديد):{" "}
-              <span className="block pt-1 font-semibold text-white sm:inline sm:pt-0">
+              <span className="block pt-1 font-semibold text-emerald-900 sm:inline sm:pt-0">
                 {formatRenewalDate(successExpiresAt)}
               </span>
             </p>
-            <p className="text-xs leading-relaxed text-emerald-200/85">
+            <p className="text-xs leading-relaxed text-emerald-700">
               يمكنك الآن فتح جميع الكورسات المدفوعة المنشورة في المنصة دون شراء كل كورس على حدة حتى هذا التاريخ.
             </p>
             <Link
               href="/courses"
-              className="mt-2 inline-flex items-center justify-center rounded-xl bg-teal-500 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-teal-400"
+              className="mt-2 inline-flex items-center justify-center rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-[var(--color-primary-hover)]"
             >
               الانتقال إلى الكورسات
             </Link>
@@ -306,11 +292,11 @@ export function SubscriptionPlanCard({
 
         {err ? (
           <div className="mt-4 space-y-2 text-center">
-            <p className="text-sm text-red-400">{err}</p>
+            <p className="text-sm text-red-600">{err}</p>
             {showAddBalanceLink ? (
               <Link
                 href={ADD_BALANCE_HREF}
-                className="inline-flex items-center justify-center rounded-xl border border-teal-400/50 bg-teal-500/15 px-4 py-2.5 text-sm font-semibold text-teal-300 transition hover:bg-teal-500/25"
+                className="inline-flex items-center justify-center rounded-xl border border-[var(--color-primary)] bg-[var(--color-primary)]/10 px-4 py-2.5 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/15"
               >
                 إضافة رصيد في حسابك
               </Link>

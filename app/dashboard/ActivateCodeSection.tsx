@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { getDir } from "@/lib/i18n/core";
 
 export function ActivateCodeSection() {
   const t = useT();
-  const locale = useLocale();
-  const dir = getDir(locale);
+  const dir = getDir();
   const router = useRouter();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,7 +95,7 @@ export function ActivateCodeSection() {
       </form>
       {message && (
         <p
-          className={`mt-3 text-sm ${message.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+          className={`mt-3 text-sm ${message.type === "success" ? "text-green-600" : "text-red-600"}`}
         >
           {message.text}
         </p>

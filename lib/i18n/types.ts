@@ -1,4 +1,4 @@
-export type Locale = "ar" | "en";
+export type Locale = "ar";
 
 /** Nested message dictionaries (e.g. dashboard.*). */
 export interface Messages {

@@ -130,7 +130,7 @@ export function StaffAccountsSection({
               {translateRole(editUser.role, t)}
             </h3>
             <form onSubmit={handleSave} className="mt-4 space-y-3">
-              {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
               <div>
                 <label className="block text-sm font-medium text-[var(--color-foreground)]">
                   {t("dashboard.studentsPage.nameLabel", "Name")}

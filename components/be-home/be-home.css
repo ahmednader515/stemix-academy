@@ -1,0 +1,230 @@
+:root {
+  --be-navy: #0c3d7a;
+  --be-navy-hover: #0a3266;
+  --be-sky: #3b82f6;
+  --be-border: #e2e8f0;
+  --be-muted: #64748b;
+  --be-bg: #ffffff;
+  --be-card: #ffffff;
+  --be-accent-orange: #f59e0b;
+  --be-red: #dc2626;
+  --be-green: #16a34a;
+}
+
+.be-home {
+  background: var(--be-bg);
+  color: #0f172a;
+}
+
+.be-home .be-pill {
+  border-radius: 9999px;
+}
+
+.be-btn-primary {
+  background: var(--color-primary, var(--be-navy));
+  color: #fff;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.be-btn-primary:hover {
+  background: var(--color-primary-hover, var(--be-navy-hover));
+}
+
+.be-home .be-btn-primary,
+.be-header .be-btn-primary {
+  background: var(--color-primary, var(--be-navy));
+}
+
+.be-home .be-btn-primary:hover,
+.be-header .be-btn-primary:hover {
+  background: var(--color-primary-hover, var(--be-navy-hover));
+}
+
+.be-home .be-btn-outline,
+.be-btn-outline {
+  border: 1.5px solid var(--color-primary, var(--be-navy));
+  color: var(--color-primary, var(--be-navy));
+  border-radius: 9999px;
+  font-weight: 600;
+  background: #fff;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.be-btn-outline:hover {
+  background: color-mix(in srgb, var(--color-primary, var(--be-navy)) 8%, #fff);
+}
+
+.be-home .be-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.be-home .be-section-title::before,
+.be-home .be-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--be-border);
+  max-width: 12rem;
+}
+
+.be-course-card {
+  border: 1px solid var(--be-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--be-card);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.05);
+}
+
+.be-course-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem;
+  text-align: right;
+}
+
+.be-course-card-image {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: #f1f5f9;
+}
+
+.be-course-card-title {
+  display: block;
+  margin-top: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #0f172a;
+}
+
+.be-course-card-title:hover {
+  color: var(--be-navy);
+}
+
+.be-course-card-instructor {
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--be-muted);
+}
+
+.be-course-card-institution {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--color-primary, var(--be-navy));
+}
+
+.be-course-card-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.be-course-card-price-compare {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--be-red);
+  text-decoration: line-through;
+}
+
+.be-course-card-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.875rem;
+  padding: 0.6875rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-primary, var(--be-navy));
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+  transition: background 0.15s ease;
+}
+
+.be-course-card-btn:hover {
+  background: var(--color-primary-hover, var(--be-navy-hover));
+}
+
+.be-home .be-carousel-track {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding-bottom: 0.25rem;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.be-home .be-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.be-home .be-carousel-item {
+  flex: 0 0 calc(100% - 0.5rem);
+  scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+  .be-home .be-carousel-item {
+    flex-basis: calc(50% - 0.5rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .be-home .be-carousel-item {
+    flex-basis: calc(25% - 0.75rem);
+  }
+}
+
+.be-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: 1.25rem;
+}
+
+.be-carousel-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  border: none;
+  padding: 0;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.be-carousel-dot.is-active {
+  background: var(--color-primary, var(--be-navy));
+  transform: scale(1.15);
+}
+
+.be-header {
+  background: #fff;
+  border-bottom: 1px solid var(--be-border, #e2e8f0);
+}
+
+.be-footer {
+  background: var(--be-navy, #0c3d7a);
+  color: #fff;
+}

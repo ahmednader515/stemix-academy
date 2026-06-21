@@ -16,7 +16,8 @@ import { getYouTubeVideoId } from "@/lib/youtube";
 import { CourseOutlineSidebar } from "@/components/CourseOutlineSidebar";
 import { LessonHomeworkSection } from "./LessonHomeworkSection";
 import { LessonRatingSection } from "./LessonRatingSection";
-import { getLocaleFromCookie, getServerTranslator } from "@/lib/i18n/server";
+import { CourseChatSection } from "@/components/course-chat/CourseChatSection";
+import { getServerTranslator } from "@/lib/i18n/server";
 import { pickLocalizedText } from "@/lib/i18n/localized-field";
 
 type Props = { params: Promise<{ slug: string; lessonSlug: string }> };
@@ -59,7 +60,7 @@ type CourseItem =
   | { type: "quiz"; id: string; title: string; _count?: { questions?: number } };
 
 export default async function LessonPage({ params }: Props) {
-  const [t, locale] = await Promise.all([getServerTranslator(), getLocaleFromCookie()]);
+  const t = await getServerTranslator();
   const { slug: courseSegment, lessonSlug: lessonSegment } = await params;
   const courseDecoded = decodeSegment(courseSegment);
   const lessonDecoded = decodeSegment(lessonSegment);
@@ -112,7 +113,7 @@ export default async function LessonPage({ params }: Props) {
         ? String(course.title_ar)
         : null;
   const courseEn = course.title != null ? String(course.title) : null;
-  const courseTitle = pickLocalizedText(locale, courseAr, courseEn) || courseEn || courseAr || "";
+  const courseTitle = pickLocalizedText(courseAr, courseEn) || courseEn || courseAr || "";
   const lessonAr =
     lessonObj.titleAr != null
       ? String(lessonObj.titleAr)
@@ -120,7 +121,11 @@ export default async function LessonPage({ params }: Props) {
         ? String(lessonObj.title_ar)
         : null;
   const lessonEn = lessonObj.title != null ? String(lessonObj.title) : null;
-  const lessonTitle = pickLocalizedText(locale, lessonAr, lessonEn) || lessonEn || lessonAr || "";
+  const lessonTitle = pickLocalizedText(lessonAr, lessonEn) || lessonEn || lessonAr || "";
+  const createdById =
+    (course.createdById as string | null | undefined) ??
+    (course.created_by_id as string | null | undefined) ??
+    null;
 
   let studentCopyrightCode: string | null = null;
   if (session?.user?.role === "STUDENT" && session.user.id) {
@@ -171,7 +176,7 @@ export default async function LessonPage({ params }: Props) {
                 <VideoCopyrightOverlay
                   code={studentCopyrightCode.trim()}
                   label={t("video.copyrightCode", "Copyright code")}
-                  dir={locale === "ar" ? "rtl" : "ltr"}
+                  dir={"rtl"}
                   style={copyrightOverlayStyle}
                 />
               ) : null}
@@ -204,6 +209,15 @@ export default async function LessonPage({ params }: Props) {
           )}
 
           {isStudent ? <LessonRatingSection lessonId={String(lessonObj.id)} /> : null}
+
+          {session?.user?.id ? (
+            <CourseChatSection
+              courseId={course.id}
+              courseTitle={courseTitle}
+              createdById={createdById}
+              session={session}
+            />
+          ) : null}
 
           {/* أزرار السابق والتالي أسفل الحصة */}
           <nav className="mt-8 flex w-full items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6">

@@ -330,7 +330,7 @@ export function TeachersAdminClient({
       </div>
 
       {error ? (
-        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</div>
+        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">{error}</div>
       ) : null}
       {success ? (
         <div className="rounded-[var(--radius-btn)] bg-[var(--color-primary)]/10 px-3 py-2 text-sm text-[var(--color-primary)]">{success}</div>
@@ -395,7 +395,7 @@ export function TeachersAdminClient({
                         setAvatarUrl("");
                         setCreateImageError("");
                       }}
-                      className="text-sm text-red-600 hover:underline dark:text-red-400"
+                      className="text-sm text-red-600 hover:underline"
                     >
                       {t(`${Ta}.removePhoto`)}
                     </button>
@@ -418,7 +418,7 @@ export function TeachersAdminClient({
                   </label>
                 </div>
                 {createImageError ? (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{createImageError}</p>
+                  <p className="mt-1 text-sm text-red-600">{createImageError}</p>
                 ) : null}
               </div>
               <div className="sm:col-span-2">
@@ -534,7 +534,7 @@ export function TeachersAdminClient({
                             <button
                               type="button"
                               onClick={() => void removeTeacher(row)}
-                              className="rounded-[var(--radius-btn)] border border-red-500/40 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                              className="rounded-[var(--radius-btn)] border border-red-500/40 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10"
                             >
                               {t(`${Ta}.delete`)}
                             </button>
@@ -630,7 +630,7 @@ export function TeachersAdminClient({
                         setEditAvatarUrl("");
                         setEditImageError("");
                       }}
-                      className="text-sm text-red-600 hover:underline dark:text-red-400"
+                      className="text-sm text-red-600 hover:underline"
                     >
                       {t(`${Ta}.removePhoto`)}
                     </button>
@@ -653,7 +653,7 @@ export function TeachersAdminClient({
                   </label>
                 </div>
                 {editImageError ? (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{editImageError}</p>
+                  <p className="mt-1 text-sm text-red-600">{editImageError}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-2 pt-2">

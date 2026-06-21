@@ -1,6 +1,5 @@
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "./constants";
+import { DEFAULT_LOCALE } from "./constants";
 import { arMessages } from "./messages/ar";
-import { enMessages } from "./messages/en";
 import type { Locale, MessageValue, Messages } from "./types";
 
 function isMessagesObject(value: MessageValue | undefined): value is Messages {
@@ -17,24 +16,20 @@ function resolveMessage(messages: Messages, key: string): string | undefined {
   return typeof current === "string" ? current : undefined;
 }
 
-export function normalizeLocale(raw: string | null | undefined): Locale {
-  if (!raw) return DEFAULT_LOCALE;
-  const normalized = raw.trim().toLowerCase();
-  return (SUPPORTED_LOCALES as string[]).includes(normalized)
-    ? (normalized as Locale)
-    : DEFAULT_LOCALE;
+export function normalizeLocale(_raw?: string | null): Locale {
+  return DEFAULT_LOCALE;
 }
 
-export function getDir(locale: Locale): "rtl" | "ltr" {
-  return locale === "ar" ? "rtl" : "ltr";
+export function getDir(_locale?: Locale): "rtl" {
+  return "rtl";
 }
 
-export function getMessages(locale: Locale): Messages {
-  return locale === "en" ? enMessages : arMessages;
+export function getMessages(_locale?: Locale): Messages {
+  return arMessages;
 }
 
-export function makeTranslator(locale: Locale) {
-  const messages = getMessages(locale);
+export function makeTranslator(_locale?: Locale) {
+  const messages = getMessages();
   return (key: string, fallback?: string): string => {
     return resolveMessage(messages, key) ?? fallback ?? key;
   };

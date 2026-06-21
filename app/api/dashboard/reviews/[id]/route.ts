@@ -1,3 +1,4 @@
+import { revalidatePublicCatalogCache } from "@/lib/revalidate-public-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -67,6 +68,7 @@ export async function PUT(
     if (body.imageUrl !== undefined) updates.image_url = nextImageUrl;
     if (body.order !== undefined) updates.order = body.order;
     await updateReview(id, updates);
+    revalidatePublicCatalogCache();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Dashboard reviews PUT:", error);
@@ -90,6 +92,7 @@ export async function DELETE(
   }
   try {
     await deleteReview(id);
+    revalidatePublicCatalogCache();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Dashboard reviews DELETE:", error);

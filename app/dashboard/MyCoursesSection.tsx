@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { CourseCard } from "@/components/CourseCard";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { getDir } from "@/lib/i18n/core";
 import type { Course } from "@/lib/types";
 import type { Category } from "@/lib/types";
@@ -60,8 +60,7 @@ function toCourseCardCourse(c: CourseWithCategory): CourseCardCourse {
 
 export function MyCoursesSection({ courses }: { courses: CourseWithCategory[] }) {
   const t = useT();
-  const locale = useLocale();
-  const dir = getDir(locale);
+  const dir = getDir();
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {

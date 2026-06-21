@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 import type { UserRole } from "@/lib/types";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { useT, useLocalizedEnumValue } from "@/components/LocaleProvider";
+import { useT, useLocalizedEnumValue } from "./LocaleProvider";
+import { BeHeaderSearch } from "@/components/be-home/BeHeaderSearch";
 
 function UserMenu() {
   const { data: session, status } = useSession();
@@ -36,39 +35,38 @@ function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-border)]/50 sm:px-3"
+        className="be-btn-outline px-4 py-2 text-sm"
       >
-        <span className="max-w-[96px] truncate sm:max-w-[120px]">{session.user.name}</span>
-        <span className="text-[var(--color-muted)]">▼</span>
+        {t("beHome.myAccount", "My account")}
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-48 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-[var(--shadow-hover)]">
-          <div className="border-b border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-muted)]">
-            {roleLabel[session.user.role]}
+        <div className="absolute end-0 top-full z-50 mt-1 w-48 rounded-xl border border-[var(--be-border,#e2e8f0)] bg-white py-1 shadow-lg">
+          <div className="border-b border-[var(--be-border,#e2e8f0)] px-3 py-2 text-xs text-[var(--be-muted)]">
+            {session.user.name} · {roleLabel[session.user.role]}
           </div>
           <Link
             href="/dashboard"
-            className="block px-3 py-2 text-sm hover:bg-[var(--color-border)]/50"
+            className="block px-3 py-2 text-sm hover:bg-slate-50"
             onClick={() => setOpen(false)}
           >
             {t("header.dashboard", "Dashboard")}
           </Link>
           <Link
             href="/dashboard/profile"
-            className="block px-3 py-2 text-sm hover:bg-[var(--color-border)]/50"
+            className="block px-3 py-2 text-sm hover:bg-slate-50"
             onClick={() => setOpen(false)}
           >
             {t("header.editAccount", "Edit account")}
           </Link>
           <button
             type="button"
-            className="w-full px-3 py-2 text-start text-sm text-red-600 hover:bg-[var(--color-border)]/50 dark:text-red-400"
+            className="w-full px-3 py-2 text-start text-sm text-red-600 hover:bg-slate-50"
             onClick={async () => {
               setOpen(false);
               try {
                 await fetch("/api/auth/clear-session", { method: "POST", credentials: "include" });
               } catch {
-                /* تجاهل خطأ الشبكة */
+                /* ignore */
               }
               signOut({ callbackUrl: "/" });
             }}
@@ -81,6 +79,9 @@ function UserMenu() {
   );
 }
 
+const navLinkClass =
+  "be-pill whitespace-nowrap rounded-full border border-[var(--be-border,#e2e8f0)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-[var(--be-navy,#0c3d7a)] hover:text-[var(--be-navy,#0c3d7a)]";
+
 export function Header({
   platformName,
   headerLogoUrl,
@@ -88,7 +89,6 @@ export function Header({
 }: {
   platformName?: string | null;
   headerLogoUrl?: string | null;
-  /** للطالب ذي اشتراك منصة نشط: نص تاريخ انتهاء الاشتراك (مُنسَّق من السيرفر) */
   platformSubscriptionExpiryLabel?: string | null;
 }) {
   const { data: session, status } = useSession();
@@ -98,121 +98,73 @@ export function Header({
   const linkTitle = trimmedName || t("header.homePage", "Homepage");
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80">
-      <div className="mx-auto max-w-6xl px-3 sm:px-6">
+    <header className="be-header sticky top-0 z-50 shadow-sm">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6">
         <div className="flex items-center justify-between gap-2 py-2 sm:hidden">
-          <Link
-            href="/"
-            className="flex min-w-0 flex-1 items-center gap-2 truncate text-base font-bold text-[var(--color-foreground)] transition hover:opacity-90"
-            title={linkTitle}
-          >
+          <Link href="/" className="flex min-w-0 flex-1 items-center gap-2 truncate text-base font-bold text-[var(--be-navy,#0c3d7a)]" title={linkTitle}>
             {headerLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={headerLogoUrl}
-                alt=""
-                className="h-9 w-9 shrink-0 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-background)] object-cover p-0.5"
-              />
+              <img src={headerLogoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
             ) : null}
             {displayName ? <span className="min-w-0 truncate">{displayName}</span> : null}
           </Link>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <LanguageToggle />
-            <ThemeToggle />
-          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 pb-2 sm:hidden">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href="/"
-              className="text-sm font-medium text-[var(--color-muted)] transition hover:text-[var(--color-foreground)]"
-            >
-              {t("common.home", "Home")}
-            </Link>
-            <Link
-              href="/courses"
-              className="text-sm font-medium text-[var(--color-muted)] transition hover:text-[var(--color-foreground)]"
-            >
+        <div className="hidden min-h-[4.5rem] items-center gap-4 py-2 lg:flex">
+          <Link href="/" className="flex shrink-0 items-center gap-2 text-lg font-bold text-[var(--be-navy,#0c3d7a)]" title={linkTitle}>
+            {headerLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={headerLogoUrl} alt="" className="h-11 w-11 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--be-navy,#0c3d7a)] text-sm text-white">SA</span>
+            )}
+            {displayName ? <span className="max-w-[10rem] truncate">{displayName}</span> : null}
+          </Link>
+
+          <nav className="flex shrink-0 items-center gap-2">
+            <Link href="/courses" className={navLinkClass}>
               {t("common.courses", "Courses")}
             </Link>
+            <Link href="/courses" className={navLinkClass}>
+              {t("beHome.freeSessions", "Free sessions")}
+            </Link>
+          </nav>
+
+          <BeHeaderSearch />
+
+          <div className="flex shrink-0 items-center gap-2">
+            {status === "loading" ? (
+              <span className="text-sm text-[var(--be-muted)]">...</span>
+            ) : session ? (
+              <UserMenu />
+            ) : (
+              <>
+                <Link href="/login" className="be-btn-outline px-4 py-2 text-sm">
+                  {t("beHome.myAccount", "My account")}
+                </Link>
+                <Link href="/register" className="be-btn-primary px-5 py-2 text-sm">
+                  {t("header.register", "Create account")}
+                </Link>
+              </>
+            )}
           </div>
-          {status === "loading" ? (
-            <span className="text-sm text-[var(--color-muted)]">...</span>
-          ) : session ? (
-            <UserMenu />
-          ) : (
-            <span className="flex shrink-0 items-center gap-1.5">
-              <Link
-                href="/login"
-                className="whitespace-nowrap rounded-[var(--radius-btn)] border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-foreground)] transition hover:bg-[var(--color-border)]/50 active:opacity-90"
-              >
-                {t("header.login", "Log in")}
-              </Link>
-              <Link
-                href="/register"
-                className="whitespace-nowrap rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--color-primary-hover)] active:opacity-90"
-              >
-                {t("header.register", "Create account")}
-              </Link>
-            </span>
-          )}
         </div>
 
-        <div className="hidden h-[72px] items-center justify-between gap-3 sm:flex">
-        <Link
-          href="/"
-          className="flex min-w-0 max-w-[45%] items-center gap-2 truncate text-lg font-bold text-[var(--color-foreground)] transition hover:opacity-90 sm:max-w-[320px] sm:text-2xl md:max-w-none"
-          title={linkTitle}
-        >
-          {headerLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={headerLogoUrl}
-              alt=""
-              className="h-12 w-12 shrink-0 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-background)] object-cover p-0.5 sm:h-14 sm:w-14"
-            />
-          ) : null}
-          {displayName ? <span className="min-w-0 truncate">{displayName}</span> : null}
-        </Link>
-        <nav className="flex flex-shrink-0 items-center gap-2 sm:gap-7">
-          <LanguageToggle />
-          <ThemeToggle />
-          <Link
-            href="/"
-            className="hidden text-base font-medium text-[var(--color-muted)] transition hover:text-[var(--color-foreground)] sm:inline-block"
-          >
-            {t("common.home", "Home")}
-          </Link>
-          <Link
-            href="/courses"
-            className="hidden text-base font-medium text-[var(--color-muted)] transition hover:text-[var(--color-foreground)] sm:inline-block"
-          >
-            {t("common.courses", "Courses")}
-          </Link>
-          {status === "loading" ? (
-            <span className="text-sm text-[var(--color-muted)]">...</span>
-          ) : session ? (
+        <div className="hidden items-center justify-between gap-2 pb-2 sm:flex lg:hidden">
+          <nav className="flex min-w-0 items-center gap-2 overflow-x-auto">
+            <Link href="/courses" className={navLinkClass}>{t("common.courses", "Courses")}</Link>
+            <Link href="/#bundles" className={navLinkClass}>{t("beHome.bundlesNav", "Bundles")}</Link>
+          </nav>
+          {status === "loading" ? null : session ? (
             <UserMenu />
           ) : (
-            <span className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="whitespace-nowrap rounded-[var(--radius-btn)] border border-[var(--color-border)] px-3.5 py-2 text-sm font-medium text-[var(--color-foreground)] transition hover:bg-[var(--color-border)]/50 active:opacity-90"
-              >
-                {t("header.login", "Log in")}
-              </Link>
-              <Link
-                href="/register"
-                className="whitespace-nowrap rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)] active:opacity-90"
-              >
-                {t("header.register", "Create account")}
-              </Link>
-            </span>
+            <Link href="/register" className="be-btn-primary shrink-0 px-4 py-2 text-sm">
+              {t("header.register", "Create account")}
+            </Link>
           )}
-        </nav>
         </div>
       </div>
+
       {platformSubscriptionExpiryLabel ? (
         <div className="border-t border-teal-500/35 bg-gradient-to-l from-teal-950/80 to-slate-900/90 py-2.5 text-center text-xs leading-relaxed text-teal-50 sm:text-sm">
           <span className="font-semibold text-teal-200">{t("header.platformSubscriptionActive", "You are subscribed to the platform subscription")}</span>

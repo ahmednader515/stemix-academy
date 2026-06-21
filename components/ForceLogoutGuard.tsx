@@ -28,8 +28,8 @@ export function ForceLogoutGuard() {
       role="alert"
       aria-live="assertive"
     >
-      <div className="max-w-md rounded-[var(--radius-card)] border border-amber-200 bg-[var(--color-surface)] p-6 shadow-2xl dark:border-amber-800 sm:p-8">
-        <h2 className="text-xl font-bold text-amber-700 dark:text-amber-300">
+      <div className="max-w-md rounded-[var(--radius-card)] border border-amber-200 bg-[var(--color-surface)] p-6 shadow-2xl sm:p-8">
+        <h2 className="text-xl font-bold text-amber-700">
           تم تسجيل الدخول من جهاز آخر
         </h2>
         <p className="mt-3 text-sm text-[var(--color-foreground)]">

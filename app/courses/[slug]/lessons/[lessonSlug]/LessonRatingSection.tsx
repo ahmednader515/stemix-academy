@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/components/LocaleProvider";
 import { fillMessage } from "@/lib/i18n/interpolate";
+import { RatingStarsFeedback } from "@/components/ratings/RatingStarsFeedback";
 
 type RatingSummary = {
   lessonId: string;
@@ -12,11 +13,14 @@ type RatingSummary = {
   courseAverageRating: number | null;
   courseRatingCount: number;
   userRating: number | null;
+  userFeedback: string | null;
 };
 
 export function LessonRatingSection({ lessonId }: { lessonId: string }) {
   const t = useT();
   const [summary, setSummary] = useState<RatingSummary | null>(null);
+  const [rating, setRating] = useState(0);
+  const [feedback, setFeedback] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +36,16 @@ export function LessonRatingSection({ lessonId }: { lessonId: string }) {
         return data.summary ?? null;
       })
       .then((data) => {
-        if (!cancelled) setSummary(data);
+        if (!cancelled) {
+          setSummary(data);
+          setRating(data?.userRating ?? 0);
+          setFeedback(data?.userFeedback ?? "");
+        }
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : t("courses.lessonRatingLoadFailed", "Failed to load ratings"));
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : t("courses.lessonRatingLoadFailed", "Failed to load ratings"));
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -45,7 +55,8 @@ export function LessonRatingSection({ lessonId }: { lessonId: string }) {
     };
   }, [lessonId, t]);
 
-  async function handleRate(nextRating: number) {
+  async function handleSave() {
+    if (rating < 1) return;
     setBusy(true);
     setError(null);
     try {
@@ -53,7 +64,7 @@ export function LessonRatingSection({ lessonId }: { lessonId: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ rating: nextRating }),
+        body: JSON.stringify({ rating, feedback }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; summary?: RatingSummary };
       if (!res.ok) {
@@ -68,76 +79,50 @@ export function LessonRatingSection({ lessonId }: { lessonId: string }) {
     }
   }
 
+  const lines: string[] = [];
+  if (loading) {
+    lines.push(t("courses.lessonRatingLoading", "Loading ratings..."));
+  } else {
+    if (summary?.averageRating != null && summary.ratingCount > 0) {
+      lines.push(
+        fillMessage(
+          t("courses.lessonRatingAverageLine", "Lesson rating: {rating}/5 ({count} ratings)"),
+          { rating: summary.averageRating.toFixed(1), count: summary.ratingCount },
+        ),
+      );
+    } else {
+      lines.push(t("courses.noRatings", "No ratings yet"));
+    }
+    if (summary?.courseAverageRating != null && summary.courseRatingCount > 0) {
+      lines.push(
+        fillMessage(
+          t("courses.courseRatingAverageLine", "Course rating (all lessons): {rating}/5 ({count} ratings)"),
+          { rating: summary.courseAverageRating.toFixed(1), count: summary.courseRatingCount },
+        ),
+      );
+    }
+  }
+
   return (
-    <section className="mt-6 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5">
-      <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
-        {t("courses.rateLessonTitle", "Rate this lesson")}
-      </h3>
-      <p className="mt-1 text-xs text-[var(--color-muted)]">
-        {t("courses.rateLessonSubtitle", "Your rating helps improve course quality for everyone.")}
-      </p>
-
-      <div className="mt-3 flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((value) => {
-          const selected = (summary?.userRating ?? 0) >= value;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleRate(value)}
-              disabled={busy || loading}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border text-2xl leading-none transition ${
-                selected
-                  ? "border-amber-500 bg-amber-500/15 text-amber-500"
-                  : "border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-muted)]"
-              } disabled:opacity-60`}
-              aria-label={fillMessage(t("courses.rateStarsAria", "Rate {n} stars"), { n: value })}
-            >
-              ★
-            </button>
-          );
-        })}
-      </div>
-
-      {error ? (
-        <p className="mt-3 rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-3 space-y-1 text-xs text-[var(--color-muted)]">
-        {loading ? (
-          <p>{t("courses.lessonRatingLoading", "Loading ratings...")}</p>
-        ) : (
-          <>
-            <p>
-              {summary?.averageRating != null && summary.ratingCount > 0
-                ? fillMessage(
-                    t(
-                      "courses.lessonRatingAverageLine",
-                      "Lesson rating: {rating}/5 ({count} ratings)",
-                    ),
-                    { rating: summary.averageRating.toFixed(1), count: summary.ratingCount },
-                  )
-                : t("courses.noRatings", "No ratings yet")}
-            </p>
-            <p>
-              {summary?.courseAverageRating != null && summary.courseRatingCount > 0
-                ? fillMessage(
-                    t(
-                      "courses.courseRatingAverageLine",
-                      "Course rating (all lessons): {rating}/5 ({count} ratings)",
-                    ),
-                    {
-                      rating: summary.courseAverageRating.toFixed(1),
-                      count: summary.courseRatingCount,
-                    },
-                  )
-                : t("courses.noCourseRatings", "No course ratings yet")}
-            </p>
-          </>
-        )}
-      </div>
-    </section>
+    <div className="mt-6">
+      <RatingStarsFeedback
+        title={t("courses.rateLessonTitle", "Rate this lesson")}
+        subtitle={t("courses.rateLessonSubtitle", "Your rating helps improve course quality for everyone.")}
+        rating={rating}
+        feedback={feedback}
+        loading={loading}
+        busy={busy}
+        error={error}
+        averageLine={lines.join(" · ")}
+        onRatingChange={setRating}
+        onFeedbackChange={setFeedback}
+        onSave={handleSave}
+        feedbackLabel={t("courses.feedbackLabel", "ملاحظاتك (اختياري)")}
+        feedbackPlaceholder={t("courses.feedbackPlaceholder", "اكتب ملاحظاتك أو اقتراحاتك...")}
+        saveLabel={t("courses.saveRating", "حفظ التقييم")}
+        savingLabel={t("courses.savingRating", "جاري الحفظ...")}
+        rateStarsAria={(n) => t("courses.rateStarsAria", "Rate {n} stars")}
+      />
+    </div>
   );
 }

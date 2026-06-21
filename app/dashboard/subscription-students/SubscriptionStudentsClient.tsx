@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale, useT } from "@/components/LocaleProvider";
+import { useT } from "@/components/LocaleProvider";
 import { useDashboardTable, dateLocaleForUi } from "@/lib/i18n/dashboard-table";
 import { fillMessage } from "@/lib/i18n/interpolate";
 
@@ -43,11 +43,10 @@ export function SubscriptionStudentsClient({
 }) {
   const router = useRouter();
   const t = useT();
-  const locale = useLocale();
   const Sc = "dashboard.subscriptionStudentsClient";
   const { dir, thClass } = useDashboardTable();
   const egp = t("common.egyptianPoundShort");
-  const dateLoc = dateLocaleForUi(locale);
+  const dateLoc = dateLocaleForUi();
   const [rows, setRows] = useState(initialRows);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -134,7 +133,7 @@ export function SubscriptionStudentsClient({
   return (
     <div className="space-y-4" dir={dir}>
       {error ? (
-        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <div className="rounded-[var(--radius-btn)] bg-red-500/10 px-3 py-2 text-sm text-red-600">
           {error}
         </div>
       ) : null}
@@ -181,7 +180,7 @@ export function SubscriptionStudentsClient({
                   <td className="px-3 py-3 text-xs text-[var(--color-muted)]">{formatUiDate(r.expiresAtIso, dateLoc)}</td>
                   <td className="px-3 py-3">
                     {r.isActive ? (
-                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-700">
                         {t(`${Sc}.statusActive`)}
                       </span>
                     ) : (
@@ -206,7 +205,7 @@ export function SubscriptionStudentsClient({
                           setSuccess("");
                           setDeleteId(r.id);
                         }}
-                        className="rounded-[var(--radius-btn)] border border-red-500/40 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                        className="rounded-[var(--radius-btn)] border border-red-500/40 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10"
                       >
                         {t(`${Sc}.delete`)}
                       </button>
