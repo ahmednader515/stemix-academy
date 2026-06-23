@@ -1,6 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { BeHomeHeroVisual } from "./BeHomeHeroVisual";
+import { BeHomeHeroWaves } from "./BeHomeHeroWaves";
 import { BeSectionTitle } from "./BeSectionTitle";
 import { HomeReviewsSection } from "@/components/HomeReviewsSection";
 import { BeHomeSearchBar } from "./BeHomeSearchBar";
@@ -33,6 +34,15 @@ import {
 const BeHomeCoursesCarousel = dynamic(
   () => import("./BeHomeCoursesCarousel").then((m) => ({ default: m.BeHomeCoursesCarousel })),
   { loading: () => <div className="mx-auto mt-10 h-64 max-w-6xl animate-pulse rounded-2xl bg-slate-100" /> },
+);
+
+const BeHomeHeroStatsCarousel = dynamic(
+  () => import("./BeHomeHeroStatsCarousel").then((m) => ({ default: m.BeHomeHeroStatsCarousel })),
+  {
+    loading: () => (
+      <div className="be-hero-stats-carousel__frame mt-8 h-[4.75rem] animate-pulse rounded-xl border border-dashed border-slate-200 bg-slate-50" />
+    ),
+  },
 );
 
 type CourseRow = Awaited<ReturnType<typeof getCoursesPublished>>[number];
@@ -190,18 +200,26 @@ export async function BeHomePage({
     "Learn more about the platform and how to use it",
   );
 
+  const heroStats = [
+    { value: `+ ${courses.length}`, label: t("beHome.statCourses", "Published courses") },
+    { value: `+ ${teachers.length || 1}`, label: t("beHome.statTeachers", "Expert teachers") },
+    { value: `+ ${reviews.length}`, label: t("beHome.statReviews", "Student reviews") },
+    { value: "24/7", label: t("beHome.statSupport", "Support") },
+    {
+      value: t("beHome.statReviewHighlight", "Comprehensive review"),
+      label: t("beHome.statReviewHighlightSub", "Ratings and more..."),
+    },
+    {
+      value: t("beHome.statStudentsHighlight", "+ 4,000 students"),
+      label: t("beHome.statStudentsHighlightSub", "Registered on the platform"),
+    },
+  ];
+
   return (
     <>
-      <section className="relative overflow-hidden bg-white pb-8 pt-6 sm:pb-12 sm:pt-10">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-30"
-          aria-hidden
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(12,61,122,0.03) 40px, rgba(12,61,122,0.03) 41px)",
-          }}
-        />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16">
+      <section className="be-hero-section relative overflow-visible pb-8 pt-6 sm:pb-12 sm:pt-10">
+        <BeHomeHeroWaves />
+        <div className="relative z-[1] mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16">
           <div className="order-2 text-center lg:order-1 lg:text-start">
             <span className="inline-block rounded-full bg-amber-100 px-4 py-1 text-xs font-semibold text-amber-800">
               {t("beHome.heroBadge", "Customized teaching for every student")}
@@ -210,33 +228,12 @@ export async function BeHomePage({
               {heroTitle}
             </h1>
             <p className="mt-4 text-base leading-relaxed text-[var(--be-muted)] sm:text-lg">{heroSlogan}</p>
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { value: `${courses.length}+`, label: t("beHome.statCourses", "Published courses") },
-                { value: `${teachers.length || 1}+`, label: t("beHome.statTeachers", "Expert teachers") },
-                { value: `${reviews.length}+`, label: t("beHome.statReviews", "Student reviews") },
-                { value: "24/7", label: t("beHome.statSupport", "Support") },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-xl border border-[var(--be-border)] bg-white px-3 py-3 text-center"
-                >
-                  <p className="text-lg font-bold text-[var(--be-navy)]">{stat.value}</p>
-                  <p className="mt-0.5 text-[10px] leading-tight text-[var(--be-muted)] sm:text-xs">{stat.label}</p>
-                </div>
-              ))}
+            <div className="mt-8">
+              <BeHomeHeroStatsCarousel stats={heroStats} />
             </div>
           </div>
-          <div className="relative order-1 mx-auto w-full max-w-md lg:order-2 lg:max-w-none">
-            <div className="relative mx-auto aspect-square max-w-sm rotate-2 overflow-hidden rounded-2xl border-4 border-white shadow-2xl">
-              <Image src={teacherImage} alt={heroTitle} fill className="object-cover" priority sizes="(max-width:768px) 80vw, 400px" />
-            </div>
-            <div className="absolute -left-2 top-8 hidden rotate-[-8deg] rounded-lg bg-[var(--be-navy)] px-3 py-2 text-xs font-bold text-white shadow-lg sm:block">
-              {courses.length}+ {t("beHome.badgeCourses", "courses")}
-            </div>
-            <div className="absolute -right-2 bottom-16 hidden rotate-[6deg] rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-slate-900 shadow-lg sm:block">
-              {t("beHome.badgeQuality", "Clear explanations")}
-            </div>
+          <div className="relative order-1 mx-auto w-full px-1 py-6 sm:px-3 sm:py-8 lg:order-2">
+            <BeHomeHeroVisual imageUrl={teacherImage} imageAlt={heroTitle} />
           </div>
         </div>
       </section>
