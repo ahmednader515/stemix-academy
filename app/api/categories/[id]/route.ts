@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { categoryIsManageableOnDashboard, deleteCategory } from "@/lib/db";
+import { collegeIsManageableOnDashboard, deleteCollege } from "@/lib/db";
 
-/** حذف قسم — الأدمن/المساعد: أقسام المنصة وأقسام الأدمن فقط؛ المدرس: أقسامه فقط. الدورات المرتبطة تصبح بدون قسم */
+/** @deprecated use DELETE /api/colleges/[id] */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -13,25 +13,20 @@ export async function DELETE(
     return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
   }
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "ASSISTANT_ADMIN" && role !== "TEACHER") {
+  if (!collegeIsManageableOnDashboard("", session.user.id, role)) {
     return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
   }
 
   const { id } = await params;
   if (!id?.trim()) {
-    return NextResponse.json({ error: "معرّف القسم مطلوب" }, { status: 400 });
-  }
-
-  const allowed = await categoryIsManageableOnDashboard(id, session.user.id, role);
-  if (!allowed) {
-    return NextResponse.json({ error: "لا يمكن حذف هذا القسم" }, { status: 403 });
+    return NextResponse.json({ error: "معرّف الجامعة مطلوب" }, { status: 400 });
   }
 
   try {
-    await deleteCategory(id);
+    await deleteCollege(id);
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("API categories [id] DELETE:", e);
-    return NextResponse.json({ error: "فشل حذف القسم" }, { status: 500 });
+    return NextResponse.json({ error: "فشل حذف الجامعة" }, { status: 500 });
   }
 }

@@ -11,21 +11,27 @@ const inactiveClass =
 const activeClass =
   "border-[var(--color-primary)] bg-[var(--color-primary)]/15 text-[var(--color-primary)]";
 
+const warnUnreadClass =
+  "border-amber-500 bg-amber-500/10 text-amber-900 shadow-[0_0_0_1px_rgba(245,158,11,0.25)]";
+
 function NavLink({
   href,
   children,
   exact = false,
+  warnUnread = false,
 }: {
   href: string;
   children: React.ReactNode;
   exact?: boolean;
+  warnUnread?: boolean;
 }) {
   const pathname = usePathname();
   const isActive = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
+  const stateClass = isActive ? activeClass : inactiveClass;
   return (
     <Link
       href={href}
-      className={`${baseClass} ${isActive ? activeClass : inactiveClass}`}
+      className={`${baseClass} ${warnUnread && !isActive ? warnUnreadClass : stateClass}`}
     >
       {children}
     </Link>
@@ -36,10 +42,12 @@ export function DashboardNav({
   isAdmin,
   isAssistant,
   isTeacher,
+  unreadNotificationCount = 0,
 }: {
   isAdmin: boolean;
   isAssistant: boolean;
   isTeacher: boolean;
+  unreadNotificationCount?: number;
 }) {
   const t = useT();
   const isStaff = isAdmin || isAssistant;
@@ -65,6 +73,22 @@ export function DashboardNav({
   if (!isStaff) {
     return (
       <>
+        <NavLink href="/dashboard/notifications" warnUnread={unreadNotificationCount > 0}>
+          <span className="inline-flex items-center gap-1.5">
+            {unreadNotificationCount > 0 ? (
+              <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              </span>
+            ) : null}
+            {t("dashboardNav.notifications", "Notifications")}
+            {unreadNotificationCount > 0 ? (
+              <span className="inline-flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold leading-none text-white">
+                {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+              </span>
+            ) : null}
+          </span>
+        </NavLink>
         <NavLink href="/dashboard/messages">
           {t("dashboardNav.inbox", "Inbox")}
         </NavLink>
@@ -90,6 +114,9 @@ export function DashboardNav({
         <NavLink href="/dashboard/password-change-requests">
           {t("dashboardNav.passwordChangeRequests", "Account change requests")}
         </NavLink>
+      )}
+      {(isAdmin || isAssistant) && (
+        <NavLink href="/dashboard/colleges">{t("dashboardNav.colleges", "Colleges")}</NavLink>
       )}
       {(isAdmin || isAssistant) && (
         <NavLink href="/dashboard/codes">

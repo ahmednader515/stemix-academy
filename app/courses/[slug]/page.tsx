@@ -15,6 +15,7 @@ import {
   getLatestPlatformSubscriptionExpiry,
 } from "@/lib/db";
 import { EnrollButton } from "./EnrollButton";
+import { CourseContentOutline } from "@/components/CourseContentOutline";
 import { CourseChatSection } from "@/components/course-chat/CourseChatSection";
 import { CourseRatingSection } from "@/components/course-rating/CourseRatingSection";
 import { CourseContentRequestSection } from "@/components/course-content-request/CourseContentRequestSection";
@@ -72,6 +73,9 @@ export default async function CoursePage({ params }: Props) {
   const { slug: segment } = await params;
   const decoded = decodeSlug(segment);
   const session = await getServerSession(authOptions);
+  const viewer = session?.user
+    ? { userId: session.user.id, userRole: session.user.role }
+    : undefined;
   let data: Awaited<ReturnType<typeof getCourseWithContent>> = null;
   let isEnrolled = false;
   let allowedLessonIds: string[] = [];
@@ -81,7 +85,7 @@ export default async function CoursePage({ params }: Props) {
   let paidCourseCoveredBySubscription = false;
   let subscriptionExpiresAt: Date | null = null;
   try {
-    data = await getCourseWithContent(decoded);
+    data = await getCourseWithContent(decoded, viewer);
     if (data?.course && session?.user?.id && session.user.role === "STUDENT") {
       const [en, user, lessons, quizzes, fullAccess, subPaid] = await Promise.all([
         getEnrollment(session.user.id, data.course.id),
@@ -110,6 +114,7 @@ export default async function CoursePage({ params }: Props) {
 
   const course = {
     ...data.course,
+    chapters: data.chapters ?? [],
     lessons: data.lessons,
     quizzes: data.quizzes,
   };
@@ -323,92 +328,19 @@ export default async function CoursePage({ params }: Props) {
               </div>
             )}
 
-            {course.lessons.length > 0 && (
-              <div className="mt-10">
-                <h2 className="text-xl font-semibold text-[var(--color-foreground)]">
-                  {t("courses.courseContent", "Course content")} ({course.lessons.length} {t("courses.lessonsCount", "lessons")})
-                </h2>
-                <ul className="mt-4 space-y-2">
-                  {(hasPartialAccess && !isEnrolled && !isStaff
-                    ? course.lessons.filter((l) => allowedLessonIds.includes(String((l as Record<string, unknown>).id ?? l.id)))
-                    : course.lessons
-                  ).map((lesson, i) => {
-                    const lessonClassName = `flex items-center gap-3 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] p-3 ${canAccessContent ? "transition hover:border-[var(--color-primary)]/30" : ""}`;
-                    const content = (
-                      <>
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)]/20 text-sm font-medium text-[var(--color-primary)]">
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium text-[var(--color-foreground)]">
-                            {String((lesson as Record<string, unknown>).titleAr ?? (lesson as Record<string, unknown>).title ?? "")}
-                          </span>
-                          {(lesson as Record<string, unknown>).duration ? (
-                            <span className="mr-2 text-sm text-[var(--color-muted)]">
-                              • {String((lesson as Record<string, unknown>).duration)} {t("courses.minutes", "minutes")}
-                            </span>
-                          ) : null}
-                          {(lesson as Record<string, unknown>).videoUrl && canAccessContent ? (
-                            <span className="mr-2 text-xs text-[var(--color-primary)]">▶ {t("courses.videoTag", "Video")}</span>
-                          ) : null}
-                        </div>
-                      </>
-                    );
-                    const courseSlugOrId = String((course as Record<string, unknown>).slug ?? "").trim() || String((course as Record<string, unknown>).id ?? course.id);
-                    const lessonSlugOrId = (lesson as Record<string, unknown>).slug && String((lesson as Record<string, unknown>).slug).trim()
-                      ? encodeURIComponent(String((lesson as Record<string, unknown>).slug).trim())
-                      : String((lesson as Record<string, unknown>).id ?? lesson.id);
-                    return (
-                      <li key={String(lesson.id)}>
-                        {canAccessContent ? (
-                          <Link
-                            href={`/courses/${courseSlugOrId}/lessons/${lessonSlugOrId}`}
-                            className={lessonClassName}
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          <div className={lessonClassName}>
-                            {content}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-
-            {course.quizzes && course.quizzes.length > 0 && (
-              <div className="mt-10">
-                <h2 className="text-xl font-semibold text-[var(--color-foreground)]">
-                  {t("courses.quizzes", "Quizzes")} ({course.quizzes.length})
-                </h2>
-                <ul className="mt-4 space-y-2">
-                  {course.quizzes.map((quiz, i) => {
-                    const q = quiz as Record<string, unknown> & { _count?: { questions?: number } };
-                    const questionsCount = q._count?.questions ?? 0;
-                    return (
-                    <li key={String(q.id)}>
-                      {canAccessQuizzes ? (
-                        <Link
-                          href={`/courses/${encodeURIComponent(normalizeSlugForUrl(String((course as Record<string, unknown>).slug ?? "")) || String((course as Record<string, unknown>).id ?? course.id))}/quizzes/${String(q.id)}`}
-                          className="flex items-center justify-between rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] p-4 transition hover:border-[var(--color-primary)]/30"
-                        >
-                          <span className="font-medium text-[var(--color-foreground)]">{String(q.title ?? "")}</span>
-                          <span className="text-sm text-[var(--color-muted)]">{questionsCount} {t("courses.questions", "questions")}</span>
-                        </Link>
-                      ) : (
-                        <div className="flex items-center justify-between rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] p-4 opacity-75">
-                          <span className="font-medium text-[var(--color-foreground)]">{String(q.title ?? "")}</span>
-                          <span className="text-sm text-[var(--color-muted)]">{questionsCount} {t("courses.questions", "questions")}</span>
-                        </div>
-                      )}
-                    </li>
-                  );})}
-                </ul>
-              </div>
-            )}
+            <CourseContentOutline
+              course={{ id: course.id, slug: (course as { slug?: string }).slug }}
+              chapters={(course.chapters ?? []) as Record<string, unknown>[]}
+              lessons={course.lessons as Record<string, unknown>[]}
+              quizzes={(course.quizzes ?? []) as Record<string, unknown>[]}
+              canAccessContent={canAccessContent}
+              canAccessQuizzes={canAccessQuizzes}
+              allowedLessonIds={allowedLessonIds}
+              allowedQuizIds={allowedQuizIds}
+              hasPartialAccess={hasPartialAccess}
+              isEnrolled={isEnrolled}
+              isStaff={isStaff}
+            />
           </div>
         </div>
         </article>

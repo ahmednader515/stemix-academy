@@ -63,6 +63,19 @@ CREATE INDEX IF NOT EXISTS "Course_created_by_id_idx" ON "Course"(created_by_id)
 ALTER TABLE "Course" ADD COLUMN IF NOT EXISTS description_en TEXT;
 ALTER TABLE "Course" ADD COLUMN IF NOT EXISTS short_desc_en VARCHAR(300);
 
+-- 3b) فصول الدورة (تجميع الحصص والاختبارات)
+CREATE TABLE IF NOT EXISTS "CourseChapter" (
+  id         TEXT PRIMARY KEY,
+  course_id  TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL,
+  title_ar   TEXT,
+  "order"    INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS "CourseChapter_course_order_idx" ON "CourseChapter"(course_id, "order");
+
 -- 4) الدروس
 CREATE TABLE IF NOT EXISTS "Lesson" (
   id         TEXT PRIMARY KEY,
@@ -81,6 +94,8 @@ CREATE TABLE IF NOT EXISTS "Lesson" (
 );
 
 CREATE INDEX IF NOT EXISTS "Lesson_course_id_idx" ON "Lesson"(course_id);
+ALTER TABLE "Lesson" ADD COLUMN IF NOT EXISTS chapter_id TEXT REFERENCES "CourseChapter"(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS "Lesson_chapter_order_idx" ON "Lesson"(chapter_id, "order") WHERE chapter_id IS NOT NULL;
 
 -- 5) الاختبارات
 CREATE TABLE IF NOT EXISTS "Quiz" (
@@ -94,6 +109,8 @@ CREATE TABLE IF NOT EXISTS "Quiz" (
 );
 
 CREATE INDEX IF NOT EXISTS "Quiz_course_id_idx" ON "Quiz"(course_id);
+ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS chapter_id TEXT REFERENCES "CourseChapter"(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS "Quiz_chapter_order_idx" ON "Quiz"(chapter_id, "order") WHERE chapter_id IS NOT NULL;
 
 -- 6) أسئلة الاختبار
 CREATE TABLE IF NOT EXISTS "Question" (
@@ -533,18 +550,27 @@ CREATE INDEX IF NOT EXISTS "UserStorePurchase_user_idx" ON "UserStorePurchase"(u
 ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS subscriptions_enabled BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS "SubscriptionPlan" (
-  id            TEXT PRIMARY KEY,
-  name          TEXT NOT NULL,
-  description   TEXT NOT NULL DEFAULT '',
-  image_url     TEXT,
-  duration_kind TEXT NOT NULL CHECK (duration_kind IN ('week', 'month', 'year')),
-  price         DECIMAL(10, 2) NOT NULL DEFAULT 0,
-  is_active     BOOLEAN NOT NULL DEFAULT true,
-  sort_order    INT NOT NULL DEFAULT 0,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id               TEXT PRIMARY KEY,
+  name             TEXT NOT NULL,
+  description      TEXT NOT NULL DEFAULT '',
+  image_url        TEXT,
+  duration_kind    TEXT NOT NULL CHECK (duration_kind IN ('week', 'month', 'year')),
+  expiry_mode      TEXT NOT NULL DEFAULT 'duration' CHECK (expiry_mode IN ('duration', 'fixed_date')),
+  fixed_expires_at TIMESTAMPTZ,
+  price            DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  is_active        BOOLEAN NOT NULL DEFAULT true,
+  sort_order       INT NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS "SubscriptionPlan_active_sort_idx" ON "SubscriptionPlan"(is_active, sort_order);
+
+CREATE TABLE IF NOT EXISTS "SubscriptionPlanCourse" (
+  plan_id   TEXT NOT NULL REFERENCES "SubscriptionPlan"(id) ON DELETE CASCADE,
+  course_id TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+  PRIMARY KEY (plan_id, course_id)
+);
+CREATE INDEX IF NOT EXISTS "SubscriptionPlanCourse_course_idx" ON "SubscriptionPlanCourse"(course_id);
 
 CREATE TABLE IF NOT EXISTS "UserPlatformSubscription" (
   id         TEXT PRIMARY KEY,

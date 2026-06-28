@@ -34,6 +34,7 @@ export default async function DashboardCoursesPage() {
       price: Number(row.price ?? 0),
       imageUrl,
       lessonsCount: Number(row.lessonsCount ?? 0),
+      chaptersCount: Number(row.chaptersCount ?? 0),
       enrollmentsCount: Number(row.enrollmentsCount ?? 0),
       category: cat
         ? { id: cat.id, name: cat.name, nameAr: cat.nameAr ?? null }

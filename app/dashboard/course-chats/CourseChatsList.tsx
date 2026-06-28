@@ -21,7 +21,7 @@ type PrivateRow = {
   courseTitle: string;
   courseTitleAr: string | null;
   studentName: string;
-  updatedAt: string;
+  updatedAt: string | null;
   lastMessagePreview: string | null;
 };
 
@@ -193,7 +193,7 @@ export function CourseChatsList({
                   <td className="p-3 text-[var(--color-muted)]">
                     {row.lastMessagePreview ?? "—"}
                     <span className="mt-0.5 block text-xs">
-                      {new Date(row.updatedAt).toLocaleString(dateLocale)}
+                      {row.updatedAt ? new Date(row.updatedAt).toLocaleString(dateLocale) : "—"}
                     </span>
                   </td>
                   <td className="p-3">

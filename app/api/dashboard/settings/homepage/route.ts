@@ -48,11 +48,15 @@ export async function PUT(request: NextRequest) {
     whatsappUrl?: string | null;
     facebookUrl?: string | null;
     telegramUrl?: string | null;
+    tiktokUrl?: string | null;
+    instagramUrl?: string | null;
     teamYoutubeUrl?: string | null;
     teamLinkedinUrl?: string | null;
     teamWhatsappUrl?: string | null;
     teamFacebookUrl?: string | null;
     teamTelegramUrl?: string | null;
+    teamTiktokUrl?: string | null;
+    teamInstagramUrl?: string | null;
     socialRightLabel?: string | null;
     socialRightLabelEn?: string | null;
     socialLeftLabel?: string | null;
@@ -445,11 +449,15 @@ export async function PUT(request: NextRequest) {
       whatsapp_url: body.whatsappUrl !== undefined ? body.whatsappUrl : undefined,
       facebook_url: body.facebookUrl !== undefined ? body.facebookUrl : undefined,
       telegram_url: body.telegramUrl !== undefined ? body.telegramUrl : undefined,
+      tiktok_url: body.tiktokUrl !== undefined ? body.tiktokUrl : undefined,
+      instagram_url: body.instagramUrl !== undefined ? body.instagramUrl : undefined,
       team_youtube_url: body.teamYoutubeUrl !== undefined ? body.teamYoutubeUrl : undefined,
       team_linkedin_url: body.teamLinkedinUrl !== undefined ? body.teamLinkedinUrl : undefined,
       team_whatsapp_url: body.teamWhatsappUrl !== undefined ? body.teamWhatsappUrl : undefined,
       team_facebook_url: body.teamFacebookUrl !== undefined ? body.teamFacebookUrl : undefined,
       team_telegram_url: body.teamTelegramUrl !== undefined ? body.teamTelegramUrl : undefined,
+      team_tiktok_url: body.teamTiktokUrl !== undefined ? body.teamTiktokUrl : undefined,
+      team_instagram_url: body.teamInstagramUrl !== undefined ? body.teamInstagramUrl : undefined,
       social_right_label:
         body.socialRightLabel !== undefined
           ? (body.socialRightLabel && String(body.socialRightLabel).trim()

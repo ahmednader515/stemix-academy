@@ -1,0 +1,54 @@
+.courses-carousel-track {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding-bottom: 0.25rem;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.courses-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.courses-carousel-item {
+  flex: 0 0 calc(100% - 0.5rem);
+  scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+  .courses-carousel-item {
+    flex-basis: calc(50% - 0.5rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .courses-carousel-item {
+    flex-basis: calc(33.333% - 0.67rem);
+  }
+}
+
+.courses-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: 1.25rem;
+}
+
+.courses-carousel-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  border: none;
+  padding: 0;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.courses-carousel-dot.is-active {
+  background: var(--color-primary, #0c3d7a);
+  transform: scale(1.15);
+}

@@ -52,7 +52,7 @@ export default async function DashboardCourseChatsPage() {
           courseTitle: p.courseTitle,
           courseTitleAr: p.courseTitleAr,
           studentName: p.studentName,
-          updatedAt: p.updatedAt.toISOString(),
+          updatedAt: p.updatedAt ? p.updatedAt.toISOString() : null,
           lastMessagePreview: p.lastMessagePreview,
         }))}
         userId={session.user.id}

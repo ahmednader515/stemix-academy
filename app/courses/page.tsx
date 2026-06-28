@@ -15,11 +15,17 @@ export async function generateMetadata() {
   };
 }
 
-type Props = { searchParams: Promise<{ category?: string; teacher?: string; q?: string }> };
+type Props = { searchParams: Promise<{ category?: string; teacher?: string; q?: string; free?: string }> };
+
+function isFreeCourse(course: { price?: unknown }): boolean {
+  const price = Number(course.price ?? 0);
+  return Number.isFinite(price) && price <= 0;
+}
 
 export default async function CoursesPage({ searchParams }: Props) {
   const t = await getServerTranslator();
-  const { category: categorySlug, teacher: teacherId, q: initialQuery } = await searchParams;
+  const { category: categorySlug, teacher: teacherId, q: initialQuery, free: freeParam } = await searchParams;
+  const freeOnly = freeParam === "1" || freeParam === "true";
   let courses: Awaited<ReturnType<typeof getCoursesPublished>> = [];
   try {
     courses = await getCoursesPublished(true);
@@ -58,6 +64,10 @@ export default async function CoursesPage({ searchParams }: Props) {
     });
   }
 
+  if (freeOnly) {
+    filtered = filtered.filter((c) => isFreeCourse(c as { price?: unknown }));
+  }
+
   const categoryName =
     categorySlug && filtered.length > 0
       ? pickLocalizedText((filtered[0] as { category?: { nameAr?: string | null; name?: string | null } }).category?.nameAr ?? null,
@@ -69,13 +79,17 @@ export default async function CoursesPage({ searchParams }: Props) {
     ? `${t("courses.teacherCoursesPrefix", "Courses by")} ${teacherName}`
     : categoryName
       ? `${t("courses.categoryCoursesPrefix", "Category courses:")} ${categoryName}`
-      : t("courses.allCoursesTitle", "All courses");
+      : freeOnly
+        ? t("courses.freeSessionsTitle", "Free sessions")
+        : t("courses.allCoursesTitle", "All courses");
 
   const pageSubtitle = teacherName
     ? t("courses.teacherCoursesSubtitle", "Published courses by this teacher on the platform")
     : categoryName
       ? t("courses.categoryCoursesSubtitle", "Courses for the selected category only")
-      : t("courses.allCoursesSubtitle", "Choose the right course and start learning step by step");
+      : freeOnly
+        ? t("courses.freeSessionsSubtitle", "Free courses you can enroll in without payment")
+        : t("courses.allCoursesSubtitle", "Choose the right course and start learning step by step");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -97,7 +111,9 @@ export default async function CoursesPage({ searchParams }: Props) {
               ? t("courses.noTeacherCourses", "No published courses for this teacher right now.")
               : categorySlug?.trim()
                 ? t("courses.noCategoryCourses", "No courses in this category right now.")
-                : t("courses.noCourses", "No published courses yet. Make sure the database is configured and seed is run.")}
+                : freeOnly
+                  ? t("courses.noFreeCourses", "No free sessions published right now.")
+                  : t("courses.noCourses", "No published courses yet. Make sure the database is configured and seed is run.")}
           </p>
         </div>
       )}

@@ -15,6 +15,8 @@ type BeCourseCardProps = {
     category?: { name?: string; nameAr?: string | null } | null;
     instructorName?: string | null;
     institutionName?: string | null;
+    chaptersCount?: number;
+    lessonsCount?: number;
   };
 };
 
@@ -71,6 +73,20 @@ export function BeCourseCard({ course }: BeCourseCardProps) {
         ) : null}
 
         {institution ? <p className="be-course-card-institution">{institution}</p> : null}
+
+        {(course.chaptersCount != null && course.chaptersCount > 0) || (course.lessonsCount != null && course.lessonsCount > 0) ? (
+          <p className="be-course-card-meta text-sm text-[var(--color-muted)]">
+            {course.chaptersCount != null && course.chaptersCount > 0
+              ? `${course.chaptersCount} ${t("courses.chapterCountShort", "chapters")}`
+              : null}
+            {course.chaptersCount != null && course.chaptersCount > 0 && course.lessonsCount != null && course.lessonsCount > 0
+              ? " · "
+              : null}
+            {course.lessonsCount != null && course.lessonsCount > 0
+              ? `${course.lessonsCount} ${t("courses.lessonsCount", "lessons")}`
+              : null}
+          </p>
+        ) : null}
 
         <div className="be-course-card-price">
           {isFree ? (

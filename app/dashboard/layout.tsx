@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { DashboardNav } from "./DashboardNav";
 import { getServerTranslator } from "@/lib/i18n/server";
+import { countUnreadStudentNotifications } from "@/lib/db";
 
 export default async function DashboardLayout({
   children,
@@ -14,6 +15,16 @@ export default async function DashboardLayout({
   const isAdmin = session.user.role === "ADMIN";
   const isAssistant = session.user.role === "ASSISTANT_ADMIN";
   const isTeacher = session.user.role === "TEACHER";
+  const isStudent = session.user.role === "STUDENT";
+
+  let unreadNotificationCount = 0;
+  if (isStudent) {
+    try {
+      unreadNotificationCount = await countUnreadStudentNotifications(session.user.id);
+    } catch {
+      unreadNotificationCount = 0;
+    }
+  }
 
   return (
     <>
@@ -40,7 +51,12 @@ export default async function DashboardLayout({
             {t("dashboard.title", "Dashboard")}
           </h1>
           <nav className="flex flex-wrap items-center gap-2">
-            <DashboardNav isAdmin={isAdmin} isAssistant={isAssistant} isTeacher={isTeacher} />
+            <DashboardNav
+              isAdmin={isAdmin}
+              isAssistant={isAssistant}
+              isTeacher={isTeacher}
+              unreadNotificationCount={isStudent ? unreadNotificationCount : 0}
+            />
           </nav>
         </div>
         {children}

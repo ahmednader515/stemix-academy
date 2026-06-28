@@ -19,16 +19,19 @@ import type {
   LessonRating,
   Lesson,
   Quiz,
+  CourseChapter,
   Question,
   QuestionOption,
   LiveStream,
   LiveStreamProvider,
   Conversation,
   Message,
+  StudentNotification,
   CourseGroupMessage,
   CoursePrivateConversation,
   CoursePrivateMessage,
   SubscriptionDurationKind,
+  SubscriptionExpiryMode,
   PlatformDetailsItem,
 } from "./types";
 import { generateCopyrightCodeCandidate } from "./copyright-code";
@@ -578,31 +581,73 @@ async function getCategoriesUncached(): Promise<Category[]> {
 
 export const getCategories = cache(getCategoriesUncached);
 
-/** أقسام تظهر في لوحة إنشاء/تعديل الدورة: المدرس يرى أقسامه فقط؛ الأدمن يرى أقسام المنصة وأقسام أي أدمن/مساعد */
-export async function getCategoriesForDashboard(userId: string, role: UserRole): Promise<Category[]> {
+/** كليات المنصة — تظهر لجميع من ينشئ دورات (مدرس / أدمن / مساعد) */
+export async function getCollegesForDashboard(_userId: string, role: UserRole): Promise<Category[]> {
   await ensureCategoryCreatedByColumn();
-  if (role === "TEACHER") {
-    const rows = await sql`
-      SELECT * FROM "Category"
-      WHERE created_by_id = ${userId}
-      ORDER BY "order" ASC
-    `;
-    return rowsToCamel(rows as Record<string, unknown>[]) as Category[];
+  if (role !== "ADMIN" && role !== "ASSISTANT_ADMIN" && role !== "TEACHER") {
+    return [];
   }
-  if (role === "ADMIN" || role === "ASSISTANT_ADMIN") {
-    const rows = await sql`
-      SELECT c.* FROM "Category" c
-      WHERE c.created_by_id IS NULL
-         OR EXISTS (
-           SELECT 1 FROM "User" u
-           WHERE u.id = c.created_by_id
-             AND u.role IN ('ADMIN', 'ASSISTANT_ADMIN')
-         )
-      ORDER BY c."order" ASC
-    `;
-    return rowsToCamel(rows as Record<string, unknown>[]) as Category[];
-  }
-  return [];
+  const rows = await sql`SELECT * FROM "Category" ORDER BY "order" ASC, name ASC`;
+  return rowsToCamel(rows as Record<string, unknown>[]) as Category[];
+}
+
+/** @deprecated use getCollegesForDashboard */
+export async function getCategoriesForDashboard(userId: string, role: UserRole): Promise<Category[]> {
+  return getCollegesForDashboard(userId, role);
+}
+
+/** كليات للإدارة — الأدمن ومساعد الأدمن فقط */
+export async function getCollegesForAdmin(): Promise<Category[]> {
+  await ensureCategoryCreatedByColumn();
+  const rows = await sql`SELECT * FROM "Category" ORDER BY "order" ASC, name ASC`;
+  return rowsToCamel(rows as Record<string, unknown>[]) as Category[];
+}
+
+export type College = Category;
+
+export async function getCollegeById(id: string): Promise<College | null> {
+  return getCategoryById(id);
+}
+
+/** هل يحق للمستخدم إدارة الكليات (إنشاء/حذف)؟ */
+export function collegeIsManageableOnDashboard(_categoryId: string, _userId: string, role: UserRole): boolean {
+  return role === "ADMIN" || role === "ASSISTANT_ADMIN";
+}
+
+/** هل الكلية موجودة ويمكن اختيارها عند إنشاء/تعديل دورة؟ */
+export async function collegeIsSelectableForCourse(categoryId: string): Promise<boolean> {
+  const cat = await getCategoryById(categoryId);
+  return cat != null;
+}
+
+export async function createCollege(data: {
+  name: string;
+  name_ar?: string | null;
+  slug: string;
+  description?: string | null;
+  image_url?: string | null;
+  order?: number;
+}): Promise<College> {
+  return createCategory({
+    ...data,
+    created_by_id: null,
+  });
+}
+
+export async function deleteCollege(id: string): Promise<boolean> {
+  return deleteCategory(id);
+}
+
+export async function findCollegeByNameAr(name: string): Promise<College | null> {
+  await ensureCategoryCreatedByColumn();
+  const n = name.trim();
+  if (!n) return null;
+  const rows = await sql`
+    SELECT * FROM "Category"
+    WHERE name_ar IS NOT NULL AND LOWER(TRIM(name_ar)) = LOWER(${n})
+    LIMIT 1
+  `;
+  return (rowToCamel(rows[0] as Record<string, unknown>) as College) ?? null;
 }
 
 export async function getCategoryById(id: string): Promise<Category | null> {
@@ -612,40 +657,16 @@ export async function getCategoryById(id: string): Promise<Category | null> {
   return (rowToCamel(rows[0] as Record<string, unknown>) as Category) ?? null;
 }
 
-/** هل يحق لهذا المستخدم اختيار هذا القسم أو حذفه من لوحة الدورات؟ */
+/** هل يحق لهذا المستخدم اختيار هذا القسم أو حذفه من لوحة الدورات؟ @deprecated use collegeIsManageableOnDashboard / collegeIsSelectableForCourse */
 export async function categoryIsManageableOnDashboard(
   categoryId: string,
   userId: string,
   role: UserRole
 ): Promise<boolean> {
-  await ensureCategoryCreatedByColumn();
-  const id = categoryId.trim();
-  if (!id) return false;
   if (role === "TEACHER") {
-    const rows = await sql`
-      SELECT 1 FROM "Category" c
-      WHERE c.id = ${id} AND c.created_by_id = ${userId}
-      LIMIT 1
-    `;
-    return rows.length > 0;
+    return collegeIsSelectableForCourse(categoryId);
   }
-  if (role === "ADMIN" || role === "ASSISTANT_ADMIN") {
-    const rows = await sql`
-      SELECT 1 FROM "Category" c
-      WHERE c.id = ${id}
-        AND (
-          c.created_by_id IS NULL
-          OR EXISTS (
-            SELECT 1 FROM "User" u
-            WHERE u.id = c.created_by_id
-              AND u.role IN ('ADMIN', 'ASSISTANT_ADMIN')
-          )
-        )
-      LIMIT 1
-    `;
-    return rows.length > 0;
-  }
-  return false;
+  return collegeIsManageableOnDashboard(categoryId, userId, role);
 }
 
 export async function createCategory(data: {
@@ -840,11 +861,15 @@ const HOMEPAGE_DEFAULTS: HomepageSetting = {
   whatsappUrl: "https://wa.me/966553612356",
   facebookUrl: "https://www.facebook.com/profile.php?id=61562686209159",
   telegramUrl: null,
+  tiktokUrl: null,
+  instagramUrl: null,
   teamYoutubeUrl: null,
   teamLinkedinUrl: null,
   teamWhatsappUrl: null,
   teamFacebookUrl: null,
   teamTelegramUrl: null,
+  teamTiktokUrl: null,
+  teamInstagramUrl: null,
   socialRightLabel: HOMEPAGE_DEFAULT_SOCIAL_RIGHT_LABEL_AR,
   socialRightLabelEn: null,
   socialLeftLabel: HOMEPAGE_DEFAULT_SOCIAL_LEFT_LABEL_AR,
@@ -1030,6 +1055,10 @@ async function ensureHomepageTeamSupportLinksColumns(): Promise<void> {
       await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS team_youtube_url TEXT`;
       await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS team_linkedin_url TEXT`;
       await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS team_telegram_url TEXT`;
+      await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS tiktok_url TEXT`;
+      await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS instagram_url TEXT`;
+      await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS team_tiktok_url TEXT`;
+      await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS team_instagram_url TEXT`;
       await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS social_right_label TEXT`;
       await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS social_left_label TEXT`;
       await sql`ALTER TABLE "HomepageSetting" ADD COLUMN IF NOT EXISTS social_left_enabled BOOLEAN NOT NULL DEFAULT true`;
@@ -1554,6 +1583,22 @@ async function getHomepageSettingsUncached(): Promise<HomepageSetting> {
         row.team_telegram_url != null && String(row.team_telegram_url).trim() !== ""
           ? String(row.team_telegram_url).trim().slice(0, 4000)
           : null,
+      tiktokUrl:
+        row.tiktok_url != null && String(row.tiktok_url).trim() !== ""
+          ? String(row.tiktok_url).trim().slice(0, 4000)
+          : null,
+      instagramUrl:
+        row.instagram_url != null && String(row.instagram_url).trim() !== ""
+          ? String(row.instagram_url).trim().slice(0, 4000)
+          : null,
+      teamTiktokUrl:
+        row.team_tiktok_url != null && String(row.team_tiktok_url).trim() !== ""
+          ? String(row.team_tiktok_url).trim().slice(0, 4000)
+          : null,
+      teamInstagramUrl:
+        row.team_instagram_url != null && String(row.team_instagram_url).trim() !== ""
+          ? String(row.team_instagram_url).trim().slice(0, 4000)
+          : null,
       socialRightLabel:
         row.social_right_label != null && String(row.social_right_label).trim() !== ""
           ? String(row.social_right_label).trim().slice(0, 120)
@@ -1972,11 +2017,15 @@ export async function updateHomepageSettings(data: {
   whatsapp_url?: string | null;
   facebook_url?: string | null;
   telegram_url?: string | null;
+  tiktok_url?: string | null;
+  instagram_url?: string | null;
   team_youtube_url?: string | null;
   team_linkedin_url?: string | null;
   team_whatsapp_url?: string | null;
   team_facebook_url?: string | null;
   team_telegram_url?: string | null;
+  team_tiktok_url?: string | null;
+  team_instagram_url?: string | null;
   social_right_label?: string | null;
   social_right_label_en?: string | null;
   social_left_label?: string | null;
@@ -2123,6 +2172,12 @@ export async function updateHomepageSettings(data: {
   if (data.telegram_url !== undefined) {
     await sql`UPDATE "HomepageSetting" SET telegram_url = ${data.telegram_url}, updated_at = NOW() WHERE id = 'default'`;
   }
+  if (data.tiktok_url !== undefined) {
+    await sql`UPDATE "HomepageSetting" SET tiktok_url = ${data.tiktok_url}, updated_at = NOW() WHERE id = 'default'`;
+  }
+  if (data.instagram_url !== undefined) {
+    await sql`UPDATE "HomepageSetting" SET instagram_url = ${data.instagram_url}, updated_at = NOW() WHERE id = 'default'`;
+  }
   if (data.team_youtube_url !== undefined) {
     await sql`UPDATE "HomepageSetting" SET team_youtube_url = ${data.team_youtube_url}, updated_at = NOW() WHERE id = 'default'`;
   }
@@ -2137,6 +2192,12 @@ export async function updateHomepageSettings(data: {
   }
   if (data.team_telegram_url !== undefined) {
     await sql`UPDATE "HomepageSetting" SET team_telegram_url = ${data.team_telegram_url}, updated_at = NOW() WHERE id = 'default'`;
+  }
+  if (data.team_tiktok_url !== undefined) {
+    await sql`UPDATE "HomepageSetting" SET team_tiktok_url = ${data.team_tiktok_url}, updated_at = NOW() WHERE id = 'default'`;
+  }
+  if (data.team_instagram_url !== undefined) {
+    await sql`UPDATE "HomepageSetting" SET team_instagram_url = ${data.team_instagram_url}, updated_at = NOW() WHERE id = 'default'`;
   }
   if (data.social_right_label !== undefined) {
     await sql`UPDATE "HomepageSetting" SET social_right_label = ${data.social_right_label}, updated_at = NOW() WHERE id = 'default'`;
@@ -2483,6 +2544,16 @@ async function ensurePlatformSubscriptionSchema(): Promise<void> {
     `;
     await sql`CREATE INDEX IF NOT EXISTS "UserPlatformSubscription_user_expires_idx" ON "UserPlatformSubscription"(user_id, expires_at)`;
     await sql`CREATE INDEX IF NOT EXISTS "SubscriptionPlan_active_sort_idx" ON "SubscriptionPlan"(is_active, sort_order)`;
+    await sql`ALTER TABLE "SubscriptionPlan" ADD COLUMN IF NOT EXISTS expiry_mode TEXT NOT NULL DEFAULT 'duration'`;
+    await sql`ALTER TABLE "SubscriptionPlan" ADD COLUMN IF NOT EXISTS fixed_expires_at TIMESTAMPTZ`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS "SubscriptionPlanCourse" (
+        plan_id TEXT NOT NULL REFERENCES "SubscriptionPlan"(id) ON DELETE CASCADE,
+        course_id TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+        PRIMARY KEY (plan_id, course_id)
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "SubscriptionPlanCourse_course_idx" ON "SubscriptionPlanCourse"(course_id)`;
     platformSubscriptionSchemaEnsured = true;
   } catch {
     /* إنشاء الجداول قد يفشل بدون صلاحية CREATE */
@@ -2927,10 +2998,72 @@ export type SubscriptionPlanPublic = {
   description: string;
   imageUrl: string | null;
   durationKind: SubscriptionDurationKind;
+  expiryMode: SubscriptionExpiryMode;
+  fixedExpiresAt: string | null;
+  /** فارغ = كل الدورات المدفوعة المنشورة */
+  courseIds: string[];
   price: number;
 };
 
 export type SubscriptionPlanAdmin = SubscriptionPlanPublic & { isActive: boolean };
+
+function mapSubscriptionPlanRow(r: Record<string, unknown>, courseIds: string[] = []): SubscriptionPlanPublic {
+  const expiryModeRaw = String(r.expiry_mode ?? "duration");
+  const expiryMode: SubscriptionExpiryMode = expiryModeRaw === "fixed_date" ? "fixed_date" : "duration";
+  const fixedRaw = r.fixed_expires_at;
+  let fixedExpiresAt: string | null = null;
+  if (fixedRaw instanceof Date) fixedExpiresAt = fixedRaw.toISOString();
+  else if (fixedRaw) fixedExpiresAt = String(fixedRaw);
+  return {
+    id: String(r.id),
+    name: String(r.name ?? ""),
+    description: String(r.description ?? ""),
+    imageUrl: r.image_url ? String(r.image_url) : null,
+    durationKind: String(r.duration_kind) as SubscriptionDurationKind,
+    expiryMode,
+    fixedExpiresAt,
+    courseIds,
+    price: Number(r.price ?? 0),
+  };
+}
+
+async function getSubscriptionPlanCourseIdsMap(planIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (planIds.length === 0) return map;
+  await ensurePlatformSubscriptionSchema();
+  const rows = await sql`
+    SELECT plan_id, course_id FROM "SubscriptionPlanCourse"
+    WHERE plan_id = ANY(${planIds}::text[])
+    ORDER BY plan_id, course_id
+  `;
+  for (const r of rows as { plan_id?: string; course_id?: string }[]) {
+    const pid = String(r.plan_id ?? "");
+    const cid = String(r.course_id ?? "");
+    if (!pid || !cid) continue;
+    const list = map.get(pid) ?? [];
+    list.push(cid);
+    map.set(pid, list);
+  }
+  return map;
+}
+
+export async function getSubscriptionPlanCourseIds(planId: string): Promise<string[]> {
+  const map = await getSubscriptionPlanCourseIdsMap([planId]);
+  return map.get(planId) ?? [];
+}
+
+export async function setSubscriptionPlanCourses(planId: string, courseIds: string[]): Promise<void> {
+  await ensurePlatformSubscriptionSchema();
+  const unique = [...new Set(courseIds.map((id) => id.trim()).filter(Boolean))];
+  await sql`DELETE FROM "SubscriptionPlanCourse" WHERE plan_id = ${planId}`;
+  for (const courseId of unique) {
+    await sql`
+      INSERT INTO "SubscriptionPlanCourse" (plan_id, course_id)
+      VALUES (${planId}, ${courseId})
+      ON CONFLICT DO NOTHING
+    `;
+  }
+}
 
 function addSubscriptionDuration(from: Date, kind: SubscriptionDurationKind): Date {
   const d = new Date(from.getTime());
@@ -2944,19 +3077,14 @@ async function listActiveSubscriptionPlansPublicUncached(): Promise<Subscription
   try {
     await ensurePlatformSubscriptionSchema();
     const rows = await sql`
-      SELECT id, name, description, image_url, duration_kind, price
+      SELECT id, name, description, image_url, duration_kind, expiry_mode, fixed_expires_at, price
       FROM "SubscriptionPlan"
       WHERE is_active = true
       ORDER BY created_at DESC
     `;
-    return (rows as Record<string, unknown>[]).map((r) => ({
-      id: String(r.id),
-      name: String(r.name ?? ""),
-      description: String(r.description ?? ""),
-      imageUrl: r.image_url ? String(r.image_url) : null,
-      durationKind: String(r.duration_kind) as SubscriptionDurationKind,
-      price: Number(r.price ?? 0),
-    }));
+    const mapped = (rows as Record<string, unknown>[]).map((r) => mapSubscriptionPlanRow(r));
+    const courseMap = await getSubscriptionPlanCourseIdsMap(mapped.map((p) => p.id));
+    return mapped.map((p) => ({ ...p, courseIds: courseMap.get(p.id) ?? [] }));
   } catch {
     return [];
   }
@@ -2966,20 +3094,20 @@ export const listActiveSubscriptionPlansPublic = cache(listActiveSubscriptionPla
 
 export async function listSubscriptionPlansAll(): Promise<SubscriptionPlanAdmin[]> {
   await ensurePlatformSubscriptionSchema();
-    const rows = await sql`
-      SELECT id, name, description, image_url, duration_kind, price, is_active
-      FROM "SubscriptionPlan"
-      ORDER BY created_at DESC
-    `;
-    return (rows as Record<string, unknown>[]).map((r) => ({
-      id: String(r.id),
-      name: String(r.name ?? ""),
-      description: String(r.description ?? ""),
-      imageUrl: r.image_url ? String(r.image_url) : null,
-      durationKind: String(r.duration_kind) as SubscriptionDurationKind,
-      price: Number(r.price ?? 0),
-      isActive: Boolean(r.is_active),
-    }));
+  const rows = await sql`
+    SELECT id, name, description, image_url, duration_kind, expiry_mode, fixed_expires_at, price, is_active
+    FROM "SubscriptionPlan"
+    ORDER BY created_at DESC
+  `;
+  const mapped = (rows as Record<string, unknown>[]).map((r) => ({
+    ...mapSubscriptionPlanRow(r),
+    isActive: Boolean(r.is_active),
+  }));
+  const courseMap = await getSubscriptionPlanCourseIdsMap(mapped.map((p) => p.id));
+  return mapped.map((p) => ({
+    ...p,
+    courseIds: courseMap.get(p.id) ?? [],
+  }));
 }
 
 export async function createSubscriptionPlan(data: {
@@ -2987,6 +3115,9 @@ export async function createSubscriptionPlan(data: {
   description: string;
   image_url: string | null;
   duration_kind: SubscriptionDurationKind;
+  expiry_mode?: SubscriptionExpiryMode;
+  fixed_expires_at?: Date | string | null;
+  course_ids?: string[];
   price: number;
   is_active?: boolean;
 }): Promise<{ id: string }> {
@@ -2994,19 +3125,31 @@ export async function createSubscriptionPlan(data: {
   const id = generateId();
   const dk = data.duration_kind;
   if (dk !== "week" && dk !== "month" && dk !== "year") throw new Error("مدة غير صالحة");
+  const expiryMode: SubscriptionExpiryMode = data.expiry_mode === "fixed_date" ? "fixed_date" : "duration";
+  let fixedExpiresAt: Date | null = null;
+  if (expiryMode === "fixed_date" && data.fixed_expires_at) {
+    fixedExpiresAt = data.fixed_expires_at instanceof Date ? data.fixed_expires_at : new Date(String(data.fixed_expires_at));
+    if (Number.isNaN(fixedExpiresAt.getTime())) throw new Error("تاريخ انتهاء غير صالح");
+    if (fixedExpiresAt <= new Date()) throw new Error("تاريخ الانتهاء يجب أن يكون في المستقبل");
+  }
   await sql`
-    INSERT INTO "SubscriptionPlan" (id, name, description, image_url, duration_kind, price, is_active, sort_order)
+    INSERT INTO "SubscriptionPlan" (id, name, description, image_url, duration_kind, expiry_mode, fixed_expires_at, price, is_active, sort_order)
     VALUES (
       ${id},
       ${data.name.trim()},
       ${data.description.trim() || ""},
       ${data.image_url?.trim() || null},
       ${dk},
+      ${expiryMode},
+      ${fixedExpiresAt},
       ${Math.max(0, data.price)},
       ${data.is_active !== false},
       0
     )
   `;
+  if (data.course_ids !== undefined) {
+    await setSubscriptionPlanCourses(id, data.course_ids);
+  }
   return { id };
 }
 
@@ -3017,6 +3160,9 @@ export async function updateSubscriptionPlan(
     description?: string;
     image_url?: string | null;
     duration_kind?: SubscriptionDurationKind;
+    expiry_mode?: SubscriptionExpiryMode;
+    fixed_expires_at?: Date | string | null;
+    course_ids?: string[];
     price?: number;
     is_active?: boolean;
   },
@@ -3032,8 +3178,25 @@ export async function updateSubscriptionPlan(
     if (dk !== "week" && dk !== "month" && dk !== "year") throw new Error("مدة غير صالحة");
     await sql`UPDATE "SubscriptionPlan" SET duration_kind = ${dk}, updated_at = NOW() WHERE id = ${id}`;
   }
+  if (data.expiry_mode !== undefined) {
+    const mode: SubscriptionExpiryMode = data.expiry_mode === "fixed_date" ? "fixed_date" : "duration";
+    await sql`UPDATE "SubscriptionPlan" SET expiry_mode = ${mode}, updated_at = NOW() WHERE id = ${id}`;
+  }
+  if (data.fixed_expires_at !== undefined) {
+    if (data.fixed_expires_at === null) {
+      await sql`UPDATE "SubscriptionPlan" SET fixed_expires_at = NULL, updated_at = NOW() WHERE id = ${id}`;
+    } else {
+      const fixed = data.fixed_expires_at instanceof Date ? data.fixed_expires_at : new Date(String(data.fixed_expires_at));
+      if (Number.isNaN(fixed.getTime())) throw new Error("تاريخ انتهاء غير صالح");
+      if (fixed <= new Date()) throw new Error("تاريخ الانتهاء يجب أن يكون في المستقبل");
+      await sql`UPDATE "SubscriptionPlan" SET fixed_expires_at = ${fixed}, updated_at = NOW() WHERE id = ${id}`;
+    }
+  }
   if (data.price !== undefined) await sql`UPDATE "SubscriptionPlan" SET price = ${Math.max(0, data.price)}, updated_at = NOW() WHERE id = ${id}`;
   if (data.is_active !== undefined) await sql`UPDATE "SubscriptionPlan" SET is_active = ${data.is_active}, updated_at = NOW() WHERE id = ${id}`;
+  if (data.course_ids !== undefined) {
+    await setSubscriptionPlanCourses(id, data.course_ids);
+  }
 }
 
 export async function deleteSubscriptionPlan(id: string): Promise<void> {
@@ -3047,21 +3210,36 @@ export async function getSubscriptionPlanById(id: string): Promise<{
   description: string;
   image_url: string | null;
   duration_kind: SubscriptionDurationKind;
+  expiry_mode: SubscriptionExpiryMode;
+  fixed_expires_at: Date | null;
   price: number;
   is_active: boolean;
+  course_ids: string[];
 } | null> {
   await ensurePlatformSubscriptionSchema();
   const rows = await sql`SELECT * FROM "SubscriptionPlan" WHERE id = ${id} LIMIT 1`;
   const r = rows[0] as Record<string, unknown> | undefined;
   if (!r) return null;
+  const mapped = mapSubscriptionPlanRow(r);
+  const courseIds = await getSubscriptionPlanCourseIds(id);
+  const fixedRaw = r.fixed_expires_at;
+  let fixedExpiresAt: Date | null = null;
+  if (fixedRaw instanceof Date) fixedExpiresAt = fixedRaw;
+  else if (fixedRaw) {
+    const d = new Date(String(fixedRaw));
+    fixedExpiresAt = Number.isNaN(d.getTime()) ? null : d;
+  }
   return {
-    id: String(r.id),
-    name: String(r.name ?? ""),
-    description: String(r.description ?? ""),
-    image_url: r.image_url ? String(r.image_url) : null,
-    duration_kind: String(r.duration_kind) as SubscriptionDurationKind,
-    price: Number(r.price ?? 0),
+    id: mapped.id,
+    name: mapped.name,
+    description: mapped.description,
+    image_url: mapped.imageUrl,
+    duration_kind: mapped.durationKind,
+    expiry_mode: mapped.expiryMode,
+    fixed_expires_at: fixedExpiresAt,
+    price: mapped.price,
     is_active: Boolean(r.is_active),
+    course_ids: courseIds,
   };
 }
 
@@ -3080,16 +3258,33 @@ export async function userHasActivePlatformSubscription(userId: string): Promise
   }
 }
 
-/** اشتراك نشط + دورة منشورة + سعرها > 0 ⇒ وصول كامل كمسجّل */
+/** اشتراك نشط + دورة منشورة + سعرها > 0 + ضمن نطاق الباقة ⇒ وصول كامل كمسجّل */
 export async function userHasActivePlatformSubscriptionForPaidCourse(userId: string, courseId: string): Promise<boolean> {
-  const active = await userHasActivePlatformSubscription(userId);
-  if (!active) return false;
-  const course = await getCourseById(courseId);
-  if (!course) return false;
-  const pub = (course as { isPublished?: boolean }).isPublished ?? (course as { is_published?: boolean }).is_published;
-  if (!pub) return false;
-  const price = Number((course as { price?: unknown }).price) || 0;
-  return price > 0;
+  try {
+    await ensurePlatformSubscriptionSchema();
+    const course = await getCourseById(courseId);
+    if (!course) return false;
+    const pub = (course as { isPublished?: boolean }).isPublished ?? (course as { is_published?: boolean }).is_published;
+    if (!pub) return false;
+    const price = Number((course as { price?: unknown }).price) || 0;
+    if (price <= 0) return false;
+
+    const rows = await sql`
+      SELECT plan_id FROM "UserPlatformSubscription"
+      WHERE user_id = ${userId} AND expires_at > NOW()
+      ORDER BY expires_at DESC
+      LIMIT 1
+    `;
+    if ((rows as unknown[]).length === 0) return false;
+    const planId = (rows[0] as { plan_id?: string | null }).plan_id;
+    if (!planId) return true;
+
+    const courseIds = await getSubscriptionPlanCourseIds(planId);
+    if (courseIds.length === 0) return true;
+    return courseIds.includes(courseId);
+  } catch {
+    return false;
+  }
 }
 
 /** تسجيل في الدورة أو اشتراك منصة نشط على دورة مدفوعة منشورة */
@@ -3137,7 +3332,13 @@ export async function purchasePlatformSubscription(userId: string, planId: strin
   if (price > 0 && balance < price) throw new Error("رصيدك غير كافٍ لشراء هذه الباقة");
 
   const now = new Date();
-  const expiresAt = addSubscriptionDuration(now, plan.duration_kind);
+  let expiresAt: Date;
+  if (plan.expiry_mode === "fixed_date" && plan.fixed_expires_at) {
+    expiresAt = new Date(plan.fixed_expires_at.getTime());
+    if (expiresAt <= now) throw new Error("انتهت صلاحية هذه الباقة");
+  } else {
+    expiresAt = addSubscriptionDuration(now, plan.duration_kind);
+  }
 
   const subId = generateId();
   if (price > 0) {
@@ -3323,6 +3524,7 @@ export const getCoursesPublished = cache(async (withCategory = true): Promise<(C
 
 async function getCoursesPublishedUncached(withCategory: boolean): Promise<(Course & { category?: Category })[]> {
   await ensureLessonRatingsSchema();
+  await ensureCourseChapterSchema();
   if (!withCategory) {
     const rows = await sql`
       SELECT c.*, ${courseRatingSelectSql()}
@@ -3335,7 +3537,9 @@ async function getCoursesPublishedUncached(withCategory: boolean): Promise<(Cour
   const rows = await sql`
     SELECT c.*, ${courseRatingSelectSql()},
       creator.name as creator_name,
-      cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug
+      cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug,
+      (SELECT COUNT(*)::int FROM "Lesson" WHERE course_id = c.id) as lessons_count,
+      (SELECT COUNT(*)::int FROM "CourseChapter" WHERE course_id = c.id) as chapters_count
     FROM "Course" c
     LEFT JOIN "User" creator ON c.created_by_id = creator.id
     LEFT JOIN "Category" cat ON c.category_id = cat.id
@@ -3346,12 +3550,23 @@ async function getCoursesPublishedUncached(withCategory: boolean): Promise<(Cour
     const category = r.cat_id
       ? rowToCamel({ id: r.cat_id, name: r.cat_name, name_ar: r.cat_name_ar, slug: r.cat_slug })
       : null;
-    const { cat_id, cat_name, cat_name_ar, cat_slug, creator_name, ...rest } = r;
+    const { cat_id, cat_name, cat_name_ar, cat_slug, creator_name, lessons_count, chapters_count, ...rest } = r;
     const base = rowToCamel(rest) ?? {};
     const creatorName =
       creator_name != null && String(creator_name).trim() !== "" ? String(creator_name).trim() : null;
-    return { ...base, category, creatorName };
-  }) as unknown as (Course & { category?: Category; creatorName?: string | null })[];
+    return {
+      ...base,
+      category,
+      creatorName,
+      lessonsCount: Number(lessons_count ?? 0),
+      chaptersCount: Number(chapters_count ?? 0),
+    };
+  }) as unknown as (Course & {
+    category?: Category;
+    creatorName?: string | null;
+    lessonsCount?: number;
+    chaptersCount?: number;
+  })[];
 }
 
 /** يعيد خريطة معرف كورس → slug للكورسات المنشورة فقط (لروابط السلايدر في الصفحة الرئيسية). */
@@ -3381,10 +3596,12 @@ export async function getCoursesWithCounts(): Promise<
   >
 > {
   await ensureLessonRatingsSchema();
+  await ensureCourseChapterSchema();
   const rows = await sql`
     SELECT c.*,
       ${courseRatingSelectSql()},
       (SELECT COUNT(*)::int FROM "Lesson" WHERE course_id = c.id) as lessons_count,
+      (SELECT COUNT(*)::int FROM "CourseChapter" WHERE course_id = c.id) as chapters_count,
       (SELECT COUNT(*)::int FROM "Enrollment" WHERE course_id = c.id) as enrollments_count,
       cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug, cat."order" as cat_order
     FROM "Course" c
@@ -3400,12 +3617,14 @@ export async function getCoursesWithCounts(): Promise<
     return {
       ...rowToCamel(rest),
       lessonsCount: Number((r as { lessons_count?: number }).lessons_count ?? 0),
+      chaptersCount: Number((r as { chapters_count?: number }).chapters_count ?? 0),
       enrollmentsCount: Number((r as { enrollments_count?: number }).enrollments_count ?? 0),
       category: category as { id: string; name: string; nameAr?: string | null; slug: string } | null,
     };
   }) as Array<
     Record<string, unknown> & {
       lessonsCount: number;
+      chaptersCount: number;
       enrollmentsCount: number;
       category?: { id: string; name: string; nameAr?: string | null; slug: string } | null;
     }
@@ -3419,16 +3638,19 @@ export async function getCoursesWithCountsForCreator(
   Array<
     Record<string, unknown> & {
       lessonsCount: number;
+      chaptersCount: number;
       enrollmentsCount: number;
       category?: { id: string; name: string; nameAr?: string | null; slug: string } | null;
     }
   >
 > {
   await ensureLessonRatingsSchema();
+  await ensureCourseChapterSchema();
   const rows = await sql`
     SELECT c.*,
       ${courseRatingSelectSql()},
       (SELECT COUNT(*)::int FROM "Lesson" WHERE course_id = c.id) as lessons_count,
+      (SELECT COUNT(*)::int FROM "CourseChapter" WHERE course_id = c.id) as chapters_count,
       (SELECT COUNT(*)::int FROM "Enrollment" WHERE course_id = c.id) as enrollments_count,
       cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug, cat."order" as cat_order
     FROM "Course" c
@@ -3445,12 +3667,14 @@ export async function getCoursesWithCountsForCreator(
     return {
       ...rowToCamel(rest),
       lessonsCount: Number((r as { lessons_count?: number }).lessons_count ?? 0),
+      chaptersCount: Number((r as { chapters_count?: number }).chapters_count ?? 0),
       enrollmentsCount: Number((r as { enrollments_count?: number }).enrollments_count ?? 0),
       category: category as { id: string; name: string; nameAr?: string | null; slug: string } | null,
     };
   }) as Array<
     Record<string, unknown> & {
       lessonsCount: number;
+      chaptersCount: number;
       enrollmentsCount: number;
       category?: { id: string; name: string; nameAr?: string | null; slug: string } | null;
     }
@@ -3616,22 +3840,26 @@ export async function createLesson(data: {
   pdf_url?: string | null;
   order: number;
   accepts_homework?: boolean;
+  chapter_id?: string | null;
 }): Promise<Lesson> {
+  await ensureCourseChapterSchema();
   const id = generateId();
   const acceptsHomework = data.accepts_homework ?? false;
+  const chapterId = data.chapter_id ?? null;
   try {
     await sql`
-      INSERT INTO "Lesson" (id, course_id, title, title_ar, slug, content, video_url, pdf_url, "order", accepts_homework)
-      VALUES (${id}, ${data.course_id}, ${data.title}, ${data.title_ar ?? null}, ${data.slug}, ${data.content ?? null}, ${data.video_url ?? null}, ${data.pdf_url ?? null}, ${data.order}, ${acceptsHomework})
+      INSERT INTO "Lesson" (id, course_id, title, title_ar, slug, content, video_url, pdf_url, "order", accepts_homework, chapter_id)
+      VALUES (${id}, ${data.course_id}, ${data.title}, ${data.title_ar ?? null}, ${data.slug}, ${data.content ?? null}, ${data.video_url ?? null}, ${data.pdf_url ?? null}, ${data.order}, ${acceptsHomework}, ${chapterId})
     `;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const columnMissing = msg.includes("accepts_homework") || (msg.includes("column") && msg.includes("does not exist"));
+    const columnMissing = msg.includes("accepts_homework") || msg.includes("chapter_id") || (msg.includes("column") && msg.includes("does not exist"));
     if (columnMissing) {
       await sql`ALTER TABLE "Lesson" ADD COLUMN IF NOT EXISTS accepts_homework BOOLEAN NOT NULL DEFAULT false`;
+      await sql`ALTER TABLE "Lesson" ADD COLUMN IF NOT EXISTS chapter_id TEXT REFERENCES "CourseChapter"(id) ON DELETE SET NULL`;
       await sql`
-        INSERT INTO "Lesson" (id, course_id, title, title_ar, slug, content, video_url, pdf_url, "order", accepts_homework)
-        VALUES (${id}, ${data.course_id}, ${data.title}, ${data.title_ar ?? null}, ${data.slug}, ${data.content ?? null}, ${data.video_url ?? null}, ${data.pdf_url ?? null}, ${data.order}, ${acceptsHomework})
+        INSERT INTO "Lesson" (id, course_id, title, title_ar, slug, content, video_url, pdf_url, "order", accepts_homework, chapter_id)
+        VALUES (${id}, ${data.course_id}, ${data.title}, ${data.title_ar ?? null}, ${data.slug}, ${data.content ?? null}, ${data.video_url ?? null}, ${data.pdf_url ?? null}, ${data.order}, ${acceptsHomework}, ${chapterId})
       `;
     } else throw err;
   }
@@ -3644,36 +3872,134 @@ export async function deleteLessonsByCourseId(courseId: string): Promise<void> {
   await sql`DELETE FROM "Lesson" WHERE course_id = ${courseId}`;
 }
 
-/** جلب كورس مع الحصص والاختبارات (عدد أسئلة كل اختبار) — للصفحة التفصيلية */
-async function getCourseWithContentUncached(segment: string): Promise<{
-  course: (Course & { category?: Record<string, unknown> }) | null;
-  lessons: Record<string, unknown>[];
-  quizzes: Array<Record<string, unknown> & { _count: { questions: number } }>;
-} | null> {
+async function ensureCourseChapterSchema(): Promise<void> {
+  return ensureOnce("ensureCourseChapterSchema", async () => {
+    await sql`
+      CREATE TABLE IF NOT EXISTS "CourseChapter" (
+        id         TEXT PRIMARY KEY,
+        course_id  TEXT NOT NULL REFERENCES "Course"(id) ON DELETE CASCADE,
+        title      TEXT NOT NULL,
+        title_ar   TEXT,
+        "order"    INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "CourseChapter_course_order_idx" ON "CourseChapter"(course_id, "order")`;
+    await sql`ALTER TABLE "Lesson" ADD COLUMN IF NOT EXISTS chapter_id TEXT REFERENCES "CourseChapter"(id) ON DELETE SET NULL`;
+    await sql`ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS chapter_id TEXT REFERENCES "CourseChapter"(id) ON DELETE SET NULL`;
+    await sql`CREATE INDEX IF NOT EXISTS "Lesson_chapter_order_idx" ON "Lesson"(chapter_id, "order") WHERE chapter_id IS NOT NULL`;
+    await sql`CREATE INDEX IF NOT EXISTS "Quiz_chapter_order_idx" ON "Quiz"(chapter_id, "order") WHERE chapter_id IS NOT NULL`;
+  });
+}
+
+export async function getChaptersByCourseId(courseId: string): Promise<CourseChapter[]> {
+  await ensureCourseChapterSchema();
+  const rows = await sql`SELECT * FROM "CourseChapter" WHERE course_id = ${courseId} ORDER BY "order" ASC`;
+  return rowsToCamel(rows as Record<string, unknown>[]) as CourseChapter[];
+}
+
+export async function deleteChaptersByCourseId(courseId: string): Promise<void> {
+  await ensureCourseChapterSchema();
+  await sql`DELETE FROM "CourseChapter" WHERE course_id = ${courseId}`;
+}
+
+export async function createChapter(data: {
+  course_id: string;
+  title: string;
+  title_ar?: string | null;
+  order: number;
+}): Promise<CourseChapter> {
+  await ensureCourseChapterSchema();
+  const id = generateId();
+  await sql`
+    INSERT INTO "CourseChapter" (id, course_id, title, title_ar, "order")
+    VALUES (${id}, ${data.course_id}, ${data.title}, ${data.title_ar ?? null}, ${data.order})
+  `;
+  const rows = await sql`SELECT * FROM "CourseChapter" WHERE id = ${id} LIMIT 1`;
+  const ch = rowToCamel(rows[0] as Record<string, unknown>) as CourseChapter | null;
+  if (!ch) throw new Error("فشل إنشاء الفصل");
+  return ch;
+}
+
+/** سياق المستخدم لعرض دورات غير منشورة (مسؤولون / مسجّلون) */
+export type CourseViewerAccess = {
+  userId?: string | null;
+  userRole?: UserRole | null;
+};
+
+async function fetchCourseRowWithCategory(segment: string): Promise<Record<string, unknown> | null> {
   const isId = /^c[a-z0-9]{22}$/i.test(segment);
-  let courseRow: Record<string, unknown> | null = null;
+  let rows;
   if (isId) {
-    const rows = await sql`
+    rows = await sql`
       SELECT c.*, cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug
       FROM "Course" c
       LEFT JOIN "Category" cat ON c.category_id = cat.id
-      WHERE c.id = ${segment} AND c.is_published = true LIMIT 1
+      WHERE c.id = ${segment} LIMIT 1
     `;
-    const r = rows[0] as Record<string, unknown> | undefined;
-    if (!r) return null;
-    const { cat_id, cat_name, cat_name_ar, cat_slug, ...rest } = r;
-    courseRow = { ...rowToCamel(rest), category: r.cat_id ? rowToCamel({ id: cat_id, name: cat_name, name_ar: cat_name_ar, slug: cat_slug }) : null };
   } else {
-    const c = await getCourseBySlug(segment);
-    if (!c) return null;
-    courseRow = c as unknown as Record<string, unknown>;
+    rows = await sql`
+      SELECT c.*, cat.id as cat_id, cat.name as cat_name, cat.name_ar as cat_name_ar, cat.slug as cat_slug
+      FROM "Course" c
+      LEFT JOIN "Category" cat ON c.category_id = cat.id
+      WHERE c.slug = ${segment} LIMIT 1
+    `;
   }
+  const r = rows[0] as Record<string, unknown> | undefined;
+  if (!r) return null;
+  const { cat_id, cat_name, cat_name_ar, cat_slug, ...rest } = r;
+  return {
+    ...rowToCamel(rest),
+    category: r.cat_id ? rowToCamel({ id: cat_id, name: cat_name, name_ar: cat_name_ar, slug: cat_slug }) : null,
+  };
+}
+
+async function canViewUnpublishedCourse(
+  courseRow: Record<string, unknown>,
+  viewer?: CourseViewerAccess
+): Promise<boolean> {
+  if (!viewer?.userId) return false;
+  const role = viewer.userRole;
+  if (role === "ADMIN" || role === "ASSISTANT_ADMIN") return true;
+  const createdBy =
+    (courseRow.createdById as string | null | undefined) ??
+    (courseRow.created_by_id as string | null | undefined) ??
+    null;
+  if (role === "TEACHER" && viewer.userId === createdBy) return true;
   const courseId = courseRow.id as string;
+  const en = await getEnrollment(viewer.userId, courseId);
+  return !!en;
+}
+
+/** جلب كورس مع الحصص والاختبارات (عدد أسئلة كل اختبار) — للصفحة التفصيلية */
+async function getCourseWithContentUncached(
+  segment: string,
+  viewer?: CourseViewerAccess
+): Promise<{
+  course: (Course & { category?: Record<string, unknown> }) | null;
+  chapters: Record<string, unknown>[];
+  lessons: Record<string, unknown>[];
+  quizzes: Array<Record<string, unknown> & { _count: { questions: number } }>;
+} | null> {
+  const courseRow = await fetchCourseRowWithCategory(segment);
+  if (!courseRow) return null;
+
+  const isPublished = Boolean(courseRow.isPublished ?? courseRow.is_published);
+  if (!isPublished) {
+    const allowed = await canViewUnpublishedCourse(courseRow, viewer);
+    if (!allowed) return null;
+  }
+
+  const courseId = courseRow.id as string;
+  await ensureCourseChapterSchema();
+  const chapterRows = await sql`SELECT * FROM "CourseChapter" WHERE course_id = ${courseId} ORDER BY "order" ASC`;
   const lessonRows = await sql`SELECT * FROM "Lesson" WHERE course_id = ${courseId} ORDER BY "order" ASC`;
   const quizRows = await sql`
     SELECT q.*, (SELECT COUNT(*)::int FROM "Question" WHERE quiz_id = q.id) as question_count
     FROM "Quiz" q WHERE q.course_id = ${courseId} ORDER BY q."order" ASC
   `;
+  const chapters = rowsToCamel(chapterRows as Record<string, unknown>[]);
   const lessons = rowsToCamel(lessonRows as Record<string, unknown>[]);
   const quizzes = (quizRows as Record<string, unknown>[]).map((q) => ({
     ...rowToCamel(q),
@@ -3682,6 +4008,7 @@ async function getCourseWithContentUncached(segment: string): Promise<{
 
   return {
     course: courseRow as unknown as Course & { category?: Record<string, unknown> },
+    chapters,
     lessons,
     quizzes,
   };
@@ -3692,6 +4019,7 @@ export const getCourseWithContent = cache(getCourseWithContentUncached);
 /** جلب دورة كاملة مع حصص واختبارات (أسئلة + خيارات) — لصفحة التعديل */
 export async function getCourseForEdit(courseId: string): Promise<{
   course: Record<string, unknown> | null;
+  chapters: Record<string, unknown>[];
   lessons: Record<string, unknown>[];
   quizzes: Array<Record<string, unknown> & { questions: Array<Record<string, unknown> & { options: Record<string, unknown>[] }> }>;
 } | null> {
@@ -3699,6 +4027,8 @@ export async function getCourseForEdit(courseId: string): Promise<{
   const courseRow = courseRows[0] as Record<string, unknown> | undefined;
   if (!courseRow) return null;
 
+  await ensureCourseChapterSchema();
+  const chapterRows = await sql`SELECT * FROM "CourseChapter" WHERE course_id = ${courseId} ORDER BY "order" ASC`;
   const lessonRows = await sql`SELECT * FROM "Lesson" WHERE course_id = ${courseId} ORDER BY "order" ASC`;
   const quizRows = await sql`SELECT * FROM "Quiz" WHERE course_id = ${courseId} ORDER BY "order" ASC`;
   const quizzes: Array<Record<string, unknown> & { questions: Array<Record<string, unknown> & { options: Record<string, unknown>[] }> }> = [];
@@ -3715,6 +4045,7 @@ export async function getCourseForEdit(courseId: string): Promise<{
 
   return {
     course: rowToCamel(courseRow)!,
+    chapters: rowsToCamel(chapterRows as Record<string, unknown>[]),
     lessons: rowsToCamel(lessonRows as Record<string, unknown>[]),
     quizzes,
   };
@@ -3753,12 +4084,20 @@ export async function getQuizById(quizId: string): Promise<{
   };
 }
 
-export async function createQuiz(data: { course_id: string; title: string; order: number; time_limit_minutes?: number | null }): Promise<Quiz> {
+export async function createQuiz(data: {
+  course_id: string;
+  title: string;
+  order: number;
+  time_limit_minutes?: number | null;
+  chapter_id?: string | null;
+}): Promise<Quiz> {
+  await ensureCourseChapterSchema();
   const id = generateId();
+  const chapterId = data.chapter_id ?? null;
   const runInsert = async () => {
     await sql`
-      INSERT INTO "Quiz" (id, course_id, title, "order", time_limit_minutes)
-      VALUES (${id}, ${data.course_id}, ${data.title}, ${data.order}, ${data.time_limit_minutes ?? null})
+      INSERT INTO "Quiz" (id, course_id, title, "order", time_limit_minutes, chapter_id)
+      VALUES (${id}, ${data.course_id}, ${data.title}, ${data.order}, ${data.time_limit_minutes ?? null}, ${chapterId})
     `;
   };
   try {
@@ -3766,9 +4105,12 @@ export async function createQuiz(data: { course_id: string; title: string; order
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const code = typeof (err as { code?: string })?.code === "string" ? (err as { code: string }).code : "";
-    const isMissingColumn = code === "42703" || /time_limit_minutes|does not exist|column.*not exist/i.test(msg);
+    const isMissingColumn =
+      code === "42703" ||
+      /time_limit_minutes|chapter_id|does not exist|column.*not exist/i.test(msg);
     if (isMissingColumn) {
       await sql`ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS time_limit_minutes INT`;
+      await sql`ALTER TABLE "Quiz" ADD COLUMN IF NOT EXISTS chapter_id TEXT REFERENCES "CourseChapter"(id) ON DELETE SET NULL`;
       await runInsert();
     } else {
       throw err;
@@ -4989,6 +5331,93 @@ export async function countCourses(): Promise<number> {
   return Number((rows[0] as { c: number }).c ?? 0);
 }
 
+// ----- Student notifications (إشعارات داخل التطبيق) -----
+async function ensureStudentNotificationSchema(): Promise<void> {
+  return ensureOnce("ensureStudentNotificationSchema", async () => {
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS "StudentNotification" (
+          id TEXT PRIMARY KEY,
+          student_user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+          sender_user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+          message TEXT NOT NULL,
+          read_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`CREATE INDEX IF NOT EXISTS "StudentNotification_student_created_idx" ON "StudentNotification"(student_user_id, created_at DESC)`;
+    } catch {
+      /* DDL غير متاح */
+    }
+  });
+}
+
+export type StudentNotificationRow = StudentNotification & {
+  senderName?: string;
+};
+
+export async function createStudentNotificationsBulk(
+  senderUserId: string,
+  studentUserIds: string[],
+  message: string,
+): Promise<number> {
+  await ensureStudentNotificationSchema();
+  const text = message.trim();
+  if (!text) return 0;
+  const uniq = [...new Set(studentUserIds.map((id) => String(id).trim()).filter(Boolean))];
+  if (uniq.length === 0) return 0;
+  let created = 0;
+  for (const studentUserId of uniq) {
+    const id = generateId();
+    await sql`
+      INSERT INTO "StudentNotification" (id, student_user_id, sender_user_id, message, created_at)
+      VALUES (${id}, ${studentUserId}, ${senderUserId}, ${text.slice(0, 8000)}, NOW())
+    `;
+    created += 1;
+  }
+  return created;
+}
+
+export async function listStudentNotificationsForUser(
+  studentUserId: string,
+  limit = 30,
+): Promise<StudentNotificationRow[]> {
+  await ensureStudentNotificationSchema();
+  const cap = Math.min(Math.max(limit, 1), 100);
+  const rows = await sql`
+    SELECT n.*, u.name AS sender_name
+    FROM "StudentNotification" n
+    JOIN "User" u ON u.id = n.sender_user_id
+    WHERE n.student_user_id = ${studentUserId}
+    ORDER BY n.created_at DESC
+    LIMIT ${cap}
+  `;
+  return (rows as Record<string, unknown>[]).map((r) => {
+    const { sender_name, ...rest } = r;
+    const base = rowToCamel(rest) as StudentNotification;
+    return { ...base, senderName: sender_name != null ? String(sender_name) : undefined };
+  });
+}
+
+export async function countUnreadStudentNotifications(studentUserId: string): Promise<number> {
+  await ensureStudentNotificationSchema();
+  const rows = await sql`
+    SELECT COUNT(*)::int AS c
+    FROM "StudentNotification"
+    WHERE student_user_id = ${studentUserId} AND read_at IS NULL
+  `;
+  return Number((rows[0] as { c?: number })?.c ?? 0);
+}
+
+export async function markStudentNotificationsRead(studentUserId: string): Promise<void> {
+  await ensureStudentNotificationSchema();
+  await sql`
+    UPDATE "StudentNotification"
+    SET read_at = NOW()
+    WHERE student_user_id = ${studentUserId} AND read_at IS NULL
+  `;
+}
+
 // ----- Conversation & Message (التواصل الخاص مع الطلبة) -----
 export async function getOrCreateConversation(staffUserId: string, studentUserId: string): Promise<Conversation> {
   const existing = await sql`
@@ -5622,7 +6051,14 @@ export async function listCoursePrivateThreadsForStaff(
 
   const items: CoursePrivateThreadListItem[] = [];
   for (const row of rows) {
-    const conv = rowToCamel(row) as CoursePrivateConversation;
+    const conv = rowToCamel(row) as {
+      id: string;
+      courseId: string;
+      staffUserId: string;
+      studentUserId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    };
     let lastPreview: string | null = null;
     const lastRows = await sql`
       SELECT message_type, content, file_name FROM "CoursePrivateMessage"
@@ -5638,12 +6074,12 @@ export async function listCoursePrivateThreadsForStaff(
     }
     items.push({
       conversationId: conv.id,
-      courseId: conv.course_id,
+      courseId: conv.courseId,
       courseTitle: (row.course_title as string) ?? "",
       courseTitleAr: (row.course_title_ar as string) ?? null,
-      studentUserId: conv.student_user_id,
+      studentUserId: conv.studentUserId,
       studentName: (row.student_name as string) ?? "",
-      updatedAt: conv.updated_at,
+      updatedAt: conv.updatedAt ?? conv.createdAt,
       lastMessagePreview: lastPreview,
     });
   }
@@ -5665,7 +6101,14 @@ export async function listCoursePrivateThreadsForCourseCreator(
   `;
   const items: CoursePrivateThreadListItem[] = [];
   for (const row of rows as Record<string, unknown>[]) {
-    const conv = rowToCamel(row) as CoursePrivateConversation;
+    const conv = rowToCamel(row) as {
+      id: string;
+      courseId: string;
+      staffUserId: string;
+      studentUserId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    };
     let lastPreview: string | null = null;
     const lastRows = await sql`
       SELECT message_type, content, file_name FROM "CoursePrivateMessage"
@@ -5681,12 +6124,12 @@ export async function listCoursePrivateThreadsForCourseCreator(
     }
     items.push({
       conversationId: conv.id,
-      courseId: conv.course_id,
+      courseId: conv.courseId,
       courseTitle: (row.course_title as string) ?? "",
       courseTitleAr: (row.course_title_ar as string) ?? null,
-      studentUserId: conv.student_user_id,
+      studentUserId: conv.studentUserId,
       studentName: (row.student_name as string) ?? "",
-      updatedAt: conv.updated_at,
+      updatedAt: conv.updatedAt ?? conv.createdAt,
       lastMessagePreview: lastPreview,
     });
   }

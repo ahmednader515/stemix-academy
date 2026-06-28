@@ -32,7 +32,7 @@ export async function GET() {
         courseTitle: t.courseTitle,
         courseTitleAr: t.courseTitleAr,
         studentName: t.studentName,
-        updatedAt: t.updatedAt.toISOString(),
+        updatedAt: t.updatedAt ? t.updatedAt.toISOString() : null,
         lastMessagePreview: t.lastMessagePreview,
       })),
     });

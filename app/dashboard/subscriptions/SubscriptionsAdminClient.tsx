@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/components/LocaleProvider";
 import { useDashboardTable } from "@/lib/i18n/dashboard-table";
 import { fillMessage } from "@/lib/i18n/interpolate";
+import type { SubscriptionExpiryMode } from "@/lib/types";
+
+export type CourseOption = { id: string; title: string };
 
 export type AdminPlanRow = {
   id: string;
@@ -12,16 +15,84 @@ export type AdminPlanRow = {
   description: string;
   imageUrl: string | null;
   durationKind: "week" | "month" | "year";
+  expiryMode: SubscriptionExpiryMode;
+  fixedExpiresAt: string | null;
+  courseIds: string[];
   price: number;
   isActive: boolean;
 };
 
+function toDatetimeLocalValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatFixedExpiry(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(d);
+  } catch {
+    return iso;
+  }
+}
+
+function CoursePicker({
+  courseOptions,
+  selectedIds,
+  onChange,
+  allHint,
+  specificHint,
+  emptyLabel,
+}: {
+  courseOptions: CourseOption[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  allHint: string;
+  specificHint: string;
+  emptyLabel: string;
+}) {
+  function toggle(id: string) {
+    if (selectedIds.includes(id)) onChange(selectedIds.filter((x) => x !== id));
+    else onChange([...selectedIds, id]);
+  }
+
+  if (courseOptions.length === 0) {
+    return <p className="mt-1 text-sm text-[var(--color-muted)]">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-[var(--color-muted)]">{selectedIds.length === 0 ? allHint : specificHint}</p>
+      <div className="max-h-48 space-y-2 overflow-y-auto rounded-[var(--radius-btn)] border border-[var(--color-border)] p-3">
+        {courseOptions.map((c) => (
+          <label key={c.id} className="flex cursor-pointer items-start gap-2 text-sm text-[var(--color-foreground)]">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(c.id)}
+              onChange={() => toggle(c.id)}
+              className="mt-0.5 h-4 w-4 rounded border-[var(--color-border)]"
+            />
+            <span>{c.title}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SubscriptionsAdminClient({
   initialEnabled,
   initialPlans,
+  courseOptions,
 }: {
   initialEnabled: boolean;
   initialPlans: AdminPlanRow[];
+  courseOptions: CourseOption[];
 }) {
   const router = useRouter();
   const t = useT();
@@ -44,7 +115,10 @@ export function SubscriptionsAdminClient({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [expiryMode, setExpiryMode] = useState<SubscriptionExpiryMode>("duration");
   const [durationKind, setDurationKind] = useState<"week" | "month" | "year">("month");
+  const [fixedExpiresAt, setFixedExpiresAt] = useState("");
+  const [courseIds, setCourseIds] = useState<string[]>([]);
   const [price, setPrice] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
@@ -54,7 +128,10 @@ export function SubscriptionsAdminClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editExpiryMode, setEditExpiryMode] = useState<SubscriptionExpiryMode>("duration");
   const [editDurationKind, setEditDurationKind] = useState<"week" | "month" | "year">("month");
+  const [editFixedExpiresAt, setEditFixedExpiresAt] = useState("");
+  const [editCourseIds, setEditCourseIds] = useState<string[]>([]);
   const [editPrice, setEditPrice] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editActive, setEditActive] = useState(true);
@@ -89,6 +166,18 @@ export function SubscriptionsAdminClient({
     router.refresh();
   }
 
+  function coursesLabel(ids: string[]): string {
+    if (ids.length === 0) return t(`${Su}.coursesAllLabel`);
+    return fillMessage(t(`${Su}.coursesCountLabel`), { count: String(ids.length) });
+  }
+
+  function expiryLabel(row: AdminPlanRow): string {
+    if (row.expiryMode === "fixed_date" && row.fixedExpiresAt) {
+      return formatFixedExpiry(row.fixedExpiresAt);
+    }
+    return dkLabel(row.durationKind);
+  }
+
   async function createPlan(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -96,6 +185,10 @@ export function SubscriptionsAdminClient({
     const p = parseFloat(price.replace(",", "."));
     if (Number.isNaN(p) || p < 0) {
       setError(t(`${Su}.invalidPrice`));
+      return;
+    }
+    if (expiryMode === "fixed_date" && !fixedExpiresAt.trim()) {
+      setError(t(`${Su}.invalidFixedExpiry`));
       return;
     }
     setFormLoading(true);
@@ -106,7 +199,10 @@ export function SubscriptionsAdminClient({
       body: JSON.stringify({
         name: name.trim(),
         description: description.trim(),
+        expiryMode,
         durationKind,
+        fixedExpiresAt: expiryMode === "fixed_date" ? new Date(fixedExpiresAt).toISOString() : null,
+        courseIds,
         price: p,
         imageUrl: imageUrl.trim() || null,
       }),
@@ -120,7 +216,10 @@ export function SubscriptionsAdminClient({
     setSuccess(t(`${Su}.createSuccess`));
     setName("");
     setDescription("");
+    setExpiryMode("duration");
     setDurationKind("month");
+    setFixedExpiresAt("");
+    setCourseIds([]);
     setPrice("");
     setImageUrl("");
     setImageError("");
@@ -134,7 +233,10 @@ export function SubscriptionsAdminClient({
     setEditingId(row.id);
     setEditName(row.name);
     setEditDescription(row.description ?? "");
+    setEditExpiryMode(row.expiryMode);
     setEditDurationKind(row.durationKind);
+    setEditFixedExpiresAt(toDatetimeLocalValue(row.fixedExpiresAt));
+    setEditCourseIds(row.courseIds ?? []);
     setEditPrice(String(row.price ?? 0));
     setEditImageUrl(row.imageUrl ?? "");
     setEditActive(row.isActive);
@@ -158,6 +260,10 @@ export function SubscriptionsAdminClient({
       setError(t(`${Su}.invalidPrice`));
       return;
     }
+    if (editExpiryMode === "fixed_date" && !editFixedExpiresAt.trim()) {
+      setError(t(`${Su}.invalidFixedExpiry`));
+      return;
+    }
     setEditLoading(true);
     const res = await fetch(`/api/dashboard/subscription-plans/${encodeURIComponent(editingId)}`, {
       method: "PATCH",
@@ -166,7 +272,11 @@ export function SubscriptionsAdminClient({
       body: JSON.stringify({
         name: editName.trim(),
         description: editDescription.trim(),
+        expiryMode: editExpiryMode,
         durationKind: editDurationKind,
+        fixedExpiresAt:
+          editExpiryMode === "fixed_date" ? new Date(editFixedExpiresAt).toISOString() : null,
+        courseIds: editCourseIds,
         price: p,
         imageUrl: editImageUrl.trim() || null,
         isActive: editActive,
@@ -296,16 +406,63 @@ export function SubscriptionsAdminClient({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelDuration`)}</label>
-            <select
-              value={durationKind}
-              onChange={(e) => setDurationKind(e.target.value as "week" | "month" | "year")}
-              className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[var(--color-foreground)]"
-            >
-              <option value="week">{t(`${Su}.durationWeek`)}</option>
-              <option value="month">{t(`${Su}.durationMonth`)}</option>
-              <option value="year">{t(`${Su}.durationYear`)}</option>
-            </select>
+            <span className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelExpiryType`)}</span>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="expiryMode"
+                  checked={expiryMode === "duration"}
+                  onChange={() => setExpiryMode("duration")}
+                />
+                {t(`${Su}.expiryModeDuration`)}
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="expiryMode"
+                  checked={expiryMode === "fixed_date"}
+                  onChange={() => setExpiryMode("fixed_date")}
+                />
+                {t(`${Su}.expiryModeFixed`)}
+              </label>
+            </div>
+          </div>
+          {expiryMode === "duration" ? (
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelDuration`)}</label>
+              <select
+                value={durationKind}
+                onChange={(e) => setDurationKind(e.target.value as "week" | "month" | "year")}
+                className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[var(--color-foreground)]"
+              >
+                <option value="week">{t(`${Su}.durationWeek`)}</option>
+                <option value="month">{t(`${Su}.durationMonth`)}</option>
+                <option value="year">{t(`${Su}.durationYear`)}</option>
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelFixedExpiry`)}</label>
+              <input
+                required
+                type="datetime-local"
+                value={fixedExpiresAt}
+                onChange={(e) => setFixedExpiresAt(e.target.value)}
+                className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[var(--color-foreground)]"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelCourses`)}</label>
+            <CoursePicker
+              courseOptions={courseOptions}
+              selectedIds={courseIds}
+              onChange={setCourseIds}
+              allHint={t(`${Su}.coursesAllHint`)}
+              specificHint={t(`${Su}.coursesSpecificHint`)}
+              emptyLabel={t(`${Su}.coursesEmpty`)}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelPrice`)}</label>
@@ -380,6 +537,7 @@ export function SubscriptionsAdminClient({
                 <th className={thClass}>{t(`${Su}.colImage`)}</th>
                 <th className={thClass}>{t(`${Su}.colName`)}</th>
                 <th className={thClass}>{t(`${Su}.colDuration`)}</th>
+                <th className={thClass}>{t(`${Su}.colCourses`)}</th>
                 <th className={thClass}>{t(`${Su}.colPrice`)}</th>
                 <th className={thClass}>{t(`${Su}.colActive`)}</th>
                 <th className={thClass}>{t(`${Su}.colActions`)}</th>
@@ -388,7 +546,7 @@ export function SubscriptionsAdminClient({
             <tbody>
               {plans.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-muted)]">
+                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-muted)]">
                     {t(`${Su}.emptyPlans`)}
                   </td>
                 </tr>
@@ -404,7 +562,8 @@ export function SubscriptionsAdminClient({
                       )}
                     </td>
                     <td className="px-3 py-2 font-medium">{row.name}</td>
-                    <td className="px-3 py-2 text-[var(--color-muted)]">{dkLabel(row.durationKind)}</td>
+                    <td className="px-3 py-2 text-[var(--color-muted)]">{expiryLabel(row)}</td>
+                    <td className="px-3 py-2 text-[var(--color-muted)]">{coursesLabel(row.courseIds ?? [])}</td>
                     <td className="px-3 py-2 tabular-nums">{Number(row.price).toFixed(2)} {egp}</td>
                     <td className="px-3 py-2">
                       <button
@@ -469,16 +628,63 @@ export function SubscriptionsAdminClient({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelDuration`)}</label>
-                <select
-                  value={editDurationKind}
-                  onChange={(e) => setEditDurationKind(e.target.value as "week" | "month" | "year")}
-                  className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[var(--color-foreground)]"
-                >
-                  <option value="week">{t(`${Su}.durationWeek`)}</option>
-                  <option value="month">{t(`${Su}.durationMonth`)}</option>
-                  <option value="year">{t(`${Su}.durationYear`)}</option>
-                </select>
+                <span className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelExpiryType`)}</span>
+                <div className="mt-2 flex flex-wrap gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="editExpiryMode"
+                      checked={editExpiryMode === "duration"}
+                      onChange={() => setEditExpiryMode("duration")}
+                    />
+                    {t(`${Su}.expiryModeDuration`)}
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="editExpiryMode"
+                      checked={editExpiryMode === "fixed_date"}
+                      onChange={() => setEditExpiryMode("fixed_date")}
+                    />
+                    {t(`${Su}.expiryModeFixed`)}
+                  </label>
+                </div>
+              </div>
+              {editExpiryMode === "duration" ? (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelDuration`)}</label>
+                  <select
+                    value={editDurationKind}
+                    onChange={(e) => setEditDurationKind(e.target.value as "week" | "month" | "year")}
+                    className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[var(--color-foreground)]"
+                  >
+                    <option value="week">{t(`${Su}.durationWeek`)}</option>
+                    <option value="month">{t(`${Su}.durationMonth`)}</option>
+                    <option value="year">{t(`${Su}.durationYear`)}</option>
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelFixedExpiry`)}</label>
+                  <input
+                    required
+                    type="datetime-local"
+                    value={editFixedExpiresAt}
+                    onChange={(e) => setEditFixedExpiresAt(e.target.value)}
+                    className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[var(--color-foreground)]"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelCourses`)}</label>
+                <CoursePicker
+                  courseOptions={courseOptions}
+                  selectedIds={editCourseIds}
+                  onChange={setEditCourseIds}
+                  allHint={t(`${Su}.coursesAllHint`)}
+                  specificHint={t(`${Su}.coursesSpecificHint`)}
+                  emptyLabel={t(`${Su}.coursesEmpty`)}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-foreground)]">{t(`${Su}.labelPriceShort`)}</label>

@@ -14,6 +14,7 @@ import { PlyrVideoPlayer } from "@/components/plyr-video-player";
 import { VideoCopyrightOverlay } from "@/components/video-copyright-overlay";
 import { getYouTubeVideoId } from "@/lib/youtube";
 import { CourseOutlineSidebar } from "@/components/CourseOutlineSidebar";
+import { buildCourseOutline, outlineItemHref } from "@/lib/course-outline";
 import { LessonHomeworkSection } from "./LessonHomeworkSection";
 import { LessonRatingSection } from "./LessonRatingSection";
 import { CourseChatSection } from "@/components/course-chat/CourseChatSection";
@@ -65,8 +66,11 @@ export default async function LessonPage({ params }: Props) {
   const courseDecoded = decodeSegment(courseSegment);
   const lessonDecoded = decodeSegment(lessonSegment);
   const session = await getServerSession(authOptions);
+  const viewer = session?.user
+    ? { userId: session.user.id, userRole: session.user.role }
+    : undefined;
 
-  const data = await getCourseWithContent(courseDecoded);
+  const data = await getCourseWithContent(courseDecoded, viewer);
   if (!data?.course) notFound();
 
   const course = data.course as unknown as Record<string, unknown> & { id: string; lessons: Record<string, unknown>[]; quizzes?: Array<Record<string, unknown> & { _count?: { questions?: number } }> };
@@ -143,13 +147,19 @@ export default async function LessonPage({ params }: Props) {
   const quizzesAll = (course.quizzes ?? []) as Array<Record<string, unknown> & { id: string; title?: string; _count?: { questions?: number } }>;
   const quizzes =
     !isStaff && !isEnrolled && !hasFullStudentAccess && allowedLessonIds.length > 0 ? [] : quizzesAll;
-  const items: CourseItem[] = [
-    ...lessons.map((l) => ({ type: "lesson" as const, id: l.id, slug: (l as Record<string, unknown>).slug as string | null, title: String(l.title ?? ""), titleAr: l.titleAr })),
-    ...quizzes.map((q) => ({ type: "quiz" as const, id: q.id, title: String(q.title ?? ""), _count: q._count })),
-  ];
-  const currentIndex = items.findIndex((i) => i.type === "lesson" && i.id === lessonObj.id);
-  const prevItem = currentIndex > 0 ? items[currentIndex - 1] : null;
-  const nextItem = currentIndex >= 0 && currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
+  const chapters = (data.chapters ?? []) as Record<string, unknown>[];
+  const outline = buildCourseOutline(chapters, lessonsAll, quizzesAll);
+  const flatItems = outline.flatItems.filter((item) => {
+    if (item.type === "lesson") {
+      return lessons.some((l) => l.id === item.data.id);
+    }
+    return quizzes.some((q) => q.id === item.data.id);
+  });
+  const currentIndex = flatItems.findIndex(
+    (i) => i.type === "lesson" && String(i.data.id) === String(lessonObj.id)
+  );
+  const prevItem = currentIndex > 0 ? flatItems[currentIndex - 1] : null;
+  const nextItem = currentIndex >= 0 && currentIndex < flatItems.length - 1 ? flatItems[currentIndex + 1] : null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -223,7 +233,7 @@ export default async function LessonPage({ params }: Props) {
           <nav className="mt-8 flex w-full items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6">
             {prevItem ? (
               <Link
-                href={prevItem.type === "lesson" ? lessonHref(course, { id: prevItem.id, slug: prevItem.slug ?? undefined }) : quizHref(course, prevItem.id)}
+                href={outlineItemHref(course, prevItem)}
                 className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-medium transition hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-background)]"
               >
                 ← {prevItem.type === "lesson"
@@ -235,7 +245,7 @@ export default async function LessonPage({ params }: Props) {
             )}
             {nextItem ? (
               <Link
-                href={nextItem.type === "lesson" ? lessonHref(course, { id: nextItem.id, slug: nextItem.slug ?? undefined }) : quizHref(course, nextItem.id)}
+                href={outlineItemHref(course, nextItem)}
                 className="rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-4 py-3 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)]"
               >
                 {nextItem.type === "lesson"
@@ -250,6 +260,7 @@ export default async function LessonPage({ params }: Props) {
         <aside className="order-first lg:col-start-2 lg:row-start-1 lg:order-none">
           <CourseOutlineSidebar
             course={course}
+            chapters={chapters}
             lessons={lessons}
             quizzes={quizzes}
             currentLessonId={lessonObj.id as string}

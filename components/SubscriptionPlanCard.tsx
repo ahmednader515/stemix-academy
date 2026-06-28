@@ -10,6 +10,9 @@ export type SubscriptionPlanCardData = {
   description: string;
   imageUrl: string | null;
   durationKind: string;
+  expiryMode?: "duration" | "fixed_date";
+  fixedExpiresAt?: string | null;
+  courseIds?: string[];
   price: number;
 };
 
@@ -18,6 +21,27 @@ function durationLabel(kind: string): string {
   if (kind === "month") return "شهر";
   if (kind === "year") return "سنة";
   return kind;
+}
+
+function planBadgeLabel(plan: SubscriptionPlanCardData): string {
+  if (plan.expiryMode === "fixed_date" && plan.fixedExpiresAt) {
+    try {
+      const d = new Date(plan.fixedExpiresAt);
+      if (!Number.isNaN(d.getTime())) {
+        return new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium" }).format(d);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return durationLabel(plan.durationKind);
+}
+
+function planCoursesLabel(plan: SubscriptionPlanCardData): string {
+  const count = plan.courseIds?.length ?? 0;
+  if (count === 0) return "كل الدورات المدفوعة";
+  if (count === 1) return "دورة واحدة";
+  return `${count} دورات`;
 }
 
 const ADD_BALANCE_HREF = "/dashboard/add-balance";
@@ -160,12 +184,13 @@ export function SubscriptionPlanCard({
 
       <div className="relative z-[2] -mt-8 rounded-t-3xl border border-[var(--color-border)] border-b-0 bg-[var(--color-surface)] px-5 pb-6 pt-12 sm:px-6 sm:pt-14">
         <div className="absolute left-1/2 top-0 z-[3] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border-2 border-amber-400 bg-gradient-to-b from-amber-400 to-amber-500 px-6 py-2.5 text-sm font-bold text-white shadow-md sm:px-8 sm:py-3 sm:text-base">
-          {durationLabel(plan.durationKind)}
+          {planBadgeLabel(plan)}
         </div>
 
         <div className="flex flex-row items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <h3 className="text-right text-xl font-bold leading-snug text-[var(--color-foreground)]">{plan.name}</h3>
+            <p className="text-right text-xs text-[var(--color-muted)]">{planCoursesLabel(plan)}</p>
             {isStudent && hasActivePlatformSubscription ? (
               <p className="text-right text-xs leading-relaxed text-emerald-700">
                 {activeSubExpiryFormatted ? (

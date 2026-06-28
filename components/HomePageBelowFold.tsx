@@ -482,6 +482,16 @@ export async function HomePageBelowFold({
             <path d="M9.78 15.87 9.4 21c.54 0 .78-.23 1.06-.5l2.55-2.44 5.28 3.87c.97.53 1.65.25 1.91-.9L23.65 4.8c.34-1.4-.5-1.95-1.44-1.6L1.85 11.09c-1.39.54-1.37 1.32-.24 1.67l5.2 1.62L18.9 6.7c.57-.35 1.1-.16.67.22" />
           </svg>
         );
+        const ttIcon = (
+          <svg className="h-7 w-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 1 0 6.34 6.34V8.69a8.18 8.18 0 0 0 4.76 1.52V6.76a4.85 4.85 0 0 1-1-.07z" />
+          </svg>
+        );
+        const igIcon = (
+          <svg className="h-7 w-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.334 3.608 1.308.974.974 1.246 2.241 1.308 3.608.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.062 1.366-.334 2.633-1.308 3.608-.974.974-2.241 1.246-3.608 1.308-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.366-.062-2.633-.334-3.608-1.308-.974-.974-1.246-2.241-1.308-3.608C2.175 15.747 2.163 15.367 2.163 12s.012-3.584.07-4.85c.062-1.366.334-2.633 1.308-3.608.974-.974 2.241-1.246 3.608-1.308C8.416 2.175 8.796 2.163 12 2.163M12 0C8.741 0 8.333.014 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.132 5.775.072 7.053.014 8.333 0 8.741 0 12s.014 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.497 2.913.558C8.333 23.986 8.741 24 12 24s3.667-.014 4.947-.072c1.277-.06 2.148-.261 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.497-1.636.558-2.913.058-1.28.072-1.687.072-4.947s-.014-3.667-.072-4.947c-.06-1.277-.261-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.498-2.913-.558C15.667.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+          </svg>
+        );
 
         const baseBtn =
           "group fixed z-50 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/25 p-2 text-white shadow-[0_12px_30px_rgba(0,0,0,0.25)] backdrop-blur-md transition hover:bg-black/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60";
@@ -490,7 +500,7 @@ export async function HomePageBelowFold({
         const label =
           "pointer-events-none hidden select-none rounded-full bg-black/50 px-3 py-1 text-xs font-semibold tracking-wide text-white/95 shadow-sm md:inline-flex md:translate-x-0 md:opacity-100 group-hover:inline-flex group-hover:opacity-100 group-focus-visible:inline-flex";
 
-        const verticalPositions = ["bottom-6", "bottom-24", "bottom-42", "bottom-60", "bottom-78"] as const;
+        const verticalPositions = ["bottom-6", "bottom-24", "bottom-42", "bottom-60", "bottom-78", "bottom-96", "bottom-[27rem]"] as const;
         const rightLabelWord = homepageDefaultForLocale(pickLocalizedText(homepageSettings.socialRightLabel, homepageSettings.socialRightLabelEn),
           HOMEPAGE_DEFAULT_SOCIAL_RIGHT_LABEL_AR,
           "home.socialRightDefaultLabel",
@@ -546,6 +556,22 @@ export async function HomePageBelowFold({
             icon: tgIcon,
             bg: "bg-[#229ED9]",
           },
+          {
+            href: homepageSettings.tiktokUrl?.trim() || null,
+            label: `${rightLabelWord} (TikTok)`,
+            title: `TikTok — ${rightLabelWord}`,
+            ariaLabel: `تيك توك ${rightLabelWord} (يمين)`,
+            icon: ttIcon,
+            bg: "bg-black",
+          },
+          {
+            href: homepageSettings.instagramUrl?.trim() || null,
+            label: `${rightLabelWord} (Instagram)`,
+            title: `Instagram — ${rightLabelWord}`,
+            ariaLabel: `إنستغرام ${rightLabelWord} (يمين)`,
+            icon: igIcon,
+            bg: "bg-gradient-to-br from-[#833AB4] via-[#E4405F] to-[#FCAF45]",
+          },
         ].filter((item) => item.href);
 
         const leftLinks = leftEnabled
@@ -589,6 +615,22 @@ export async function HomePageBelowFold({
             ariaLabel: `تليجرام ${leftLabelWord} (يسار)`,
             icon: tgIcon,
             bg: "bg-[#229ED9]",
+          },
+          {
+            href: homepageSettings.teamTiktokUrl?.trim() || null,
+            label: `${leftLabelWord} (TikTok)`,
+            title: `TikTok — ${leftLabelWord}`,
+            ariaLabel: `تيك توك ${leftLabelWord} (يسار)`,
+            icon: ttIcon,
+            bg: "bg-black",
+          },
+          {
+            href: homepageSettings.teamInstagramUrl?.trim() || null,
+            label: `${leftLabelWord} (Instagram)`,
+            title: `Instagram — ${leftLabelWord}`,
+            ariaLabel: `إنستغرام ${leftLabelWord} (يسار)`,
+            icon: igIcon,
+            bg: "bg-gradient-to-br from-[#833AB4] via-[#E4405F] to-[#FCAF45]",
           },
         ].filter((item) => item.href)
           : [];

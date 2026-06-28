@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import { getServerSession } from "next-auth";
 import "./globals.css";
@@ -26,12 +25,7 @@ import {
   HOMEPAGE_DEFAULT_FOOTER_TAGLINE_AR,
   HOMEPAGE_DEFAULT_FOOTER_TITLE_AR,
 } from "@/lib/homepage-known-defaults";
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  display: "swap",
-});
+import { fontVariableClasses } from "@/lib/fonts";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -68,6 +62,8 @@ export default async function RootLayout({
   let footerWhatsappUrl: string | null = null;
   let footerFacebookUrl: string | null = null;
   let footerYoutubeUrl: string | null = null;
+  let footerTiktokUrl: string | null = null;
+  let footerInstagramUrl: string | null = null;
   try {
     const settings = await getHomepageSettings();
     platformName = pickLocalizedText(settings.platformName, settings.platformNameEn) || null;
@@ -76,6 +72,8 @@ export default async function RootLayout({
     footerWhatsappUrl = settings.whatsappUrl ?? null;
     footerFacebookUrl = settings.facebookUrl ?? null;
     footerYoutubeUrl = settings.youtubeUrl ?? null;
+    footerTiktokUrl = settings.tiktokUrl ?? null;
+    footerInstagramUrl = settings.instagramUrl ?? null;
     const rawFooterTitle = pickLocalizedText(settings.footerTitle, settings.footerTitleEn);
     const rawFooterTagline = pickLocalizedText(settings.footerTagline, settings.footerTaglineEn);
     const rawFooterCopyright = pickLocalizedText(settings.footerCopyright, settings.footerCopyrightEn);
@@ -130,7 +128,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
+    <html lang={locale} dir={dir} className={fontVariableClasses} suppressHydrationWarning>
       <head>
         {platformPrimaryColor ? (
           <style
@@ -140,7 +138,7 @@ export default async function RootLayout({
           />
         ) : null}
         </head>
-      <body className={`${outfit.variable} font-sans antialiased min-h-screen flex flex-col`}>
+      <body className="font-sans antialiased min-h-screen flex flex-col">
         <NextTopLoader
           color={platformPrimaryColor ?? "#0d9488"}
           height={3}
@@ -167,6 +165,8 @@ export default async function RootLayout({
               whatsappUrl={footerWhatsappUrl}
               facebookUrl={footerFacebookUrl}
               youtubeUrl={footerYoutubeUrl}
+              tiktokUrl={footerTiktokUrl}
+              instagramUrl={footerInstagramUrl}
             />
             </StoreSplashProvider>
           </SessionProvider>

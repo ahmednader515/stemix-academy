@@ -1,7 +1,8 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { BeHomeHeroVisual } from "./BeHomeHeroVisual";
-import { BeHomeHeroWaves } from "./BeHomeHeroWaves";
+import { BeHomeHeroBackground } from "./BeHomeHeroBackground";
+import { BeHomeHeroStatsGrid } from "./BeHomeHeroStatsGrid";
 import { BeSectionTitle } from "./BeSectionTitle";
 import { HomeReviewsSection } from "@/components/HomeReviewsSection";
 import { BeHomeSearchBar } from "./BeHomeSearchBar";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/db";
 import { parsePlatformDetailsItems } from "@/lib/platform-details";
 import { homepageDefaultForLocale } from "@/lib/homepage-default-for-locale";
+import { cairo, tajawal } from "@/lib/fonts";
 import {
   HOMEPAGE_DEFAULT_PLATFORM_DETAILS_SUBTITLE_AR,
   HOMEPAGE_DEFAULT_PLATFORM_DETAILS_TITLE_AR,
@@ -36,15 +38,6 @@ const BeHomeCoursesCarousel = dynamic(
   { loading: () => <div className="mx-auto mt-10 h-64 max-w-6xl animate-pulse rounded-2xl bg-slate-100" /> },
 );
 
-const BeHomeHeroStatsCarousel = dynamic(
-  () => import("./BeHomeHeroStatsCarousel").then((m) => ({ default: m.BeHomeHeroStatsCarousel })),
-  {
-    loading: () => (
-      <div className="be-hero-stats-carousel__frame mt-8 h-[4.75rem] animate-pulse rounded-xl border border-dashed border-slate-200 bg-slate-50" />
-    ),
-  },
-);
-
 type CourseRow = Awaited<ReturnType<typeof getCoursesPublished>>[number];
 
 function courseToCard(c: CourseRow, platformName: string) {
@@ -53,6 +46,8 @@ function courseToCard(c: CourseRow, platformName: string) {
     imageUrl?: string | null;
     image_url?: string | null;
     creatorName?: string | null;
+    lessonsCount?: number;
+    chaptersCount?: number;
   };
   const category = (c as { category?: { name?: string; nameAr?: string | null } }).category ?? null;
   const categoryLabel = category?.nameAr?.trim() || category?.name?.trim() || null;
@@ -66,6 +61,8 @@ function courseToCard(c: CourseRow, platformName: string) {
     category,
     instructorName: row.creatorName ?? null,
     institutionName: categoryLabel ?? platformName,
+    chaptersCount: row.chaptersCount ?? 0,
+    lessonsCount: row.lessonsCount ?? 0,
   };
 }
 
@@ -201,45 +198,45 @@ export async function BeHomePage({
   );
 
   const heroStats = [
-    { value: `+ ${courses.length}`, label: t("beHome.statCourses", "Published courses") },
-    { value: `+ ${teachers.length || 1}`, label: t("beHome.statTeachers", "Expert teachers") },
-    { value: `+ ${reviews.length}`, label: t("beHome.statReviews", "Student reviews") },
+    { value: `+${courses.length}`, label: t("beHome.statCourses", "Published courses") },
+    { value: `+${teachers.length || 1}`, label: t("beHome.statTeachers", "Expert teachers") },
+    { value: `+${reviews.length}`, label: t("beHome.statReviews", "Student reviews") },
     { value: "24/7", label: t("beHome.statSupport", "Support") },
-    {
-      value: t("beHome.statReviewHighlight", "Comprehensive review"),
-      label: t("beHome.statReviewHighlightSub", "Ratings and more..."),
-    },
-    {
-      value: t("beHome.statStudentsHighlight", "+ 4,000 students"),
-      label: t("beHome.statStudentsHighlightSub", "Registered on the platform"),
-    },
   ];
 
   return (
     <>
-      <section className="be-hero-section relative overflow-visible pb-8 pt-6 sm:pb-12 sm:pt-10">
-        <BeHomeHeroWaves />
-        <div className="relative z-[1] mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16">
-          <div className="order-2 text-center lg:order-1 lg:text-start">
-            <span className="inline-block rounded-full bg-amber-100 px-4 py-1 text-xs font-semibold text-amber-800">
-              {t("beHome.heroBadge", "Customized teaching for every student")}
-            </span>
-            <h1 className="mt-4 text-3xl font-extrabold leading-tight text-[var(--be-navy)] sm:text-4xl lg:text-[2.75rem]">
-              {heroTitle}
-            </h1>
-            <p className="mt-4 text-base leading-relaxed text-[var(--be-muted)] sm:text-lg">{heroSlogan}</p>
-            <div className="mt-8">
-              <BeHomeHeroStatsCarousel stats={heroStats} />
+      <section className="be-hero-section relative overflow-hidden pb-10 pt-8 sm:pb-14 sm:pt-12">
+        <BeHomeHeroBackground />
+        <div className="relative z-[1] mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14 xl:gap-20">
+            <div className={`order-2 text-center lg:order-1 lg:text-start ${tajawal.className}`}>
+              <span className={`be-hero-badge ${tajawal.className}`}>
+                {t("beHome.heroBadge", "Customized teaching for every student")}
+              </span>
+              <h1 className={`be-hero-title ${cairo.className}`}>{heroTitle}</h1>
+              <p className={`be-hero-slogan ${tajawal.className}`}>{heroSlogan}</p>
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                <Link href="/courses" className="be-btn-primary px-6 py-2.5 text-sm sm:text-base">
+                  {t("beHome.browseCoursesCta", "Browse courses")}
+                </Link>
+                <Link href="/courses?free=1" className="be-btn-outline px-6 py-2.5 text-sm sm:text-base">
+                  {t("beHome.freeSessions", "Free sessions")}
+                </Link>
+              </div>
+              <div className="mt-8">
+                <BeHomeHeroStatsGrid stats={heroStats} />
+              </div>
+            </div>
+            <div className="order-1 lg:order-2">
+              <BeHomeHeroVisual imageUrl={teacherImage} imageAlt={heroTitle} />
             </div>
           </div>
-          <div className="relative order-1 mx-auto w-full px-1 py-6 sm:px-3 sm:py-8 lg:order-2">
-            <BeHomeHeroVisual imageUrl={teacherImage} imageAlt={heroTitle} />
+
+          <div className="be-hero-search-wrap">
+            <BeHomeSearchBar categories={categoryOptions} />
           </div>
         </div>
-      </section>
-
-      <section className="relative z-10 -mt-4 mb-10 px-4 sm:mb-12 sm:px-6">
-        <BeHomeSearchBar categories={categoryOptions} />
       </section>
 
       {latestCourses.length > 0 ? (

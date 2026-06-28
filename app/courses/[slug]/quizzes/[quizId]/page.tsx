@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getCourseWithContent, getEnrollment, hasFullCourseAccessAsStudent } from "@/lib/db";
 import { CourseOutlineSidebar } from "@/components/CourseOutlineSidebar";
+import { buildCourseOutline, outlineItemHref } from "@/lib/course-outline";
 import { CourseChatSection } from "@/components/course-chat/CourseChatSection";
 import { QuizPageClient } from "./QuizPageClient";
 
@@ -41,8 +42,11 @@ export default async function QuizPage({ params }: Props) {
   const { slug: courseSegment, quizId } = await params;
   const courseDecoded = decodeSegment(courseSegment);
   const session = await getServerSession(authOptions);
+  const viewer = session?.user
+    ? { userId: session.user.id, userRole: session.user.role }
+    : undefined;
 
-  const data = await getCourseWithContent(courseDecoded);
+  const data = await getCourseWithContent(courseDecoded, viewer);
   if (!data?.course) notFound();
 
   const course = data.course as unknown as Record<string, unknown> & {
@@ -69,13 +73,12 @@ export default async function QuizPage({ params }: Props) {
 
   const lessons = (course.lessons ?? []) as Array<Record<string, unknown> & { id: string; slug?: string | null }>;
   const quizzes = (course.quizzes ?? []) as Array<Record<string, unknown> & { id: string }>;
-  const items: CourseItem[] = [
-    ...lessons.map((l) => ({ type: "lesson" as const, id: l.id, slug: (l as Record<string, unknown>).slug as string | null })),
-    ...quizzes.map((q) => ({ type: "quiz" as const, id: q.id })),
-  ];
-  const currentIndex = items.findIndex((i) => i.type === "quiz" && i.id === quizId);
-  const prevItem = currentIndex > 0 ? items[currentIndex - 1] : null;
-  const nextItem = currentIndex >= 0 && currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
+  const chapters = (data.chapters ?? []) as Record<string, unknown>[];
+  const outline = buildCourseOutline(chapters, lessons, quizzes);
+  const flatItems = outline.flatItems;
+  const currentIndex = flatItems.findIndex((i) => i.type === "quiz" && String(i.data.id) === quizId);
+  const prevItem = currentIndex > 0 ? flatItems[currentIndex - 1] : null;
+  const nextItem = currentIndex >= 0 && currentIndex < flatItems.length - 1 ? flatItems[currentIndex + 1] : null;
 
   const createdById =
     (course.createdById as string | null | undefined) ??
@@ -102,7 +105,7 @@ export default async function QuizPage({ params }: Props) {
           <nav className="mx-auto mt-8 flex w-full max-w-3xl items-center justify-between gap-4 border-t border-[var(--color-border)] px-4 pt-6 sm:px-6">
             {prevItem ? (
               <Link
-                href={prevItem.type === "lesson" ? lessonHref(course, prevItem) : quizHref(course, prevItem.id)}
+                href={outlineItemHref(course, prevItem)}
                 className="rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm font-medium transition hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-background)]"
               >
                 ← {prevItem.type === "lesson" ? "الحصة السابقة" : "الاختبار السابق"}
@@ -112,7 +115,7 @@ export default async function QuizPage({ params }: Props) {
             )}
             {nextItem ? (
               <Link
-                href={nextItem.type === "lesson" ? lessonHref(course, nextItem) : quizHref(course, nextItem.id)}
+                href={outlineItemHref(course, nextItem)}
                 className="rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-4 py-3 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)]"
               >
                 {nextItem.type === "lesson" ? "الحصة التالية" : "الاختبار التالي"} →
@@ -124,6 +127,7 @@ export default async function QuizPage({ params }: Props) {
         <aside className="order-first lg:col-start-2 lg:row-start-1 lg:order-none">
           <CourseOutlineSidebar
             course={course}
+            chapters={chapters}
             lessons={lessons as Array<Record<string, unknown> & { id: string; title?: string; titleAr?: string | null }>}
             quizzes={quizzes as Array<Record<string, unknown> & { id: string; title?: string; _count?: { questions?: number } }>}
             currentLessonId={null}

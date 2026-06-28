@@ -2,18 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { deleteSubscriptionPlan, updateSubscriptionPlan } from "@/lib/db";
-import type { SubscriptionDurationKind } from "@/lib/types";
+import type { SubscriptionDurationKind, SubscriptionExpiryMode } from "@/lib/types";
 
 type Params = { params: Promise<{ id: string }> };
 
-type PlanPatch = {
-  name?: string;
-  description?: string;
-  image_url?: string | null;
-  duration_kind?: SubscriptionDurationKind;
-  price?: number;
-  is_active?: boolean;
-};
+function parseExpiryMode(value: unknown): SubscriptionExpiryMode | null {
+  if (value === "fixed_date") return "fixed_date";
+  if (value === "duration") return "duration";
+  return null;
+}
+
+function parseCourseIds(value: unknown): string[] | null {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) return null;
+  return value.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+}
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   const session = await getServerSession(authOptions);
@@ -26,6 +29,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     description?: string;
     imageUrl?: string | null;
     durationKind?: string;
+    expiryMode?: string;
+    fixedExpiresAt?: string | null;
+    courseIds?: unknown;
     price?: number;
     isActive?: boolean;
   };
@@ -34,7 +40,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   } catch {
     return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
   }
-  const patch: PlanPatch = {};
+
+  const patch: Parameters<typeof updateSubscriptionPlan>[1] = {};
   if (body.name !== undefined) patch.name = body.name.trim();
   if (body.description !== undefined) patch.description = body.description.trim();
   if (body.imageUrl !== undefined) patch.image_url = body.imageUrl?.trim() || null;
@@ -45,23 +52,43 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     patch.duration_kind = dk;
   }
+  if (body.expiryMode !== undefined) {
+    const mode = parseExpiryMode(body.expiryMode);
+    if (!mode) return NextResponse.json({ error: "نوع انتهاء غير صالح" }, { status: 400 });
+    patch.expiry_mode = mode;
+  }
+  if (body.fixedExpiresAt !== undefined) {
+    if (body.fixedExpiresAt === null || body.fixedExpiresAt === "") {
+      patch.fixed_expires_at = null;
+    } else {
+      const fixed = new Date(body.fixedExpiresAt);
+      if (Number.isNaN(fixed.getTime())) {
+        return NextResponse.json({ error: "تاريخ انتهاء غير صالح" }, { status: 400 });
+      }
+      if (fixed <= new Date()) {
+        return NextResponse.json({ error: "تاريخ الانتهاء يجب أن يكون في المستقبل" }, { status: 400 });
+      }
+      patch.fixed_expires_at = fixed;
+    }
+  }
+  const courseIds = parseCourseIds(body.courseIds);
+  if (body.courseIds !== undefined && courseIds === null) {
+    return NextResponse.json({ error: "قائمة الدورات غير صالحة" }, { status: 400 });
+  }
+  if (courseIds !== null) patch.course_ids = courseIds;
   if (body.price !== undefined) patch.price = Math.max(0, Number(body.price) || 0);
   if (body.isActive !== undefined) patch.is_active = !!body.isActive;
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "لا توجد حقول للتحديث" }, { status: 400 });
   }
+
   try {
-    await updateSubscriptionPlan(id, {
-      name: patch.name,
-      description: patch.description,
-      image_url: patch.image_url,
-      duration_kind: patch.duration_kind,
-      price: patch.price,
-      is_active: patch.is_active,
-    });
+    await updateSubscriptionPlan(id, patch);
   } catch (e) {
     console.error("PATCH subscription-plans/[id]", e);
-    return NextResponse.json({ error: "فشل التحديث" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : "فشل التحديث";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
   return NextResponse.json({ success: true });
 }

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import {
   getUserById,
-  getAccessibleCoursesForUser,
   countUsersByRole,
   countCourses,
   getTotalPlatformEarnings,
   getCoursesWithCountsForCreator,
+  getCoursesPublished,
+  getTeacherIdsExcludedFromPublicCourseLists,
   getSubscriptionsFeatureEnabled,
   listActiveSubscriptionPlansPublic,
   listStudentStorePurchases,
@@ -16,6 +17,8 @@ import {
   getLatestPlatformSubscriptionExpiry,
   getReviews,
   getHomepageSettings,
+  getCategories,
+  countUnreadStudentNotifications,
 } from "@/lib/db";
 import { getServerTranslator } from "@/lib/i18n/server";
 import { pickLocalizedText } from "@/lib/i18n/localized-field";
@@ -168,7 +171,32 @@ export default async function DashboardPage() {
 
   if (isStudent) {
     const user = await getUserById(session.user.id);
-    const enrolledCourses = user ? await getAccessibleCoursesForUser(session.user.id) : [];
+    let publishedCoursesForStudent: Awaited<ReturnType<typeof getCoursesPublished>> = [];
+    let collegesForStudent: { id: string; name: string; nameAr?: string | null; slug?: string }[] = [];
+    try {
+      const [cats, published, hideTeacherCreators] = await Promise.all([
+        getCategories(),
+        getCoursesPublished(true),
+        getTeacherIdsExcludedFromPublicCourseLists(),
+      ]);
+      collegesForStudent = cats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        nameAr: (c as { name_ar?: string | null; nameAr?: string | null }).nameAr ?? c.name_ar ?? null,
+        slug: c.slug,
+      }));
+      publishedCoursesForStudent =
+        hideTeacherCreators.size > 0
+          ? published.filter((c) => {
+              const row = c as { createdById?: string | null; created_by_id?: string | null };
+              const creator = row.createdById ?? row.created_by_id ?? null;
+              return !creator || !hideTeacherCreators.has(creator);
+            })
+          : published;
+    } catch {
+      publishedCoursesForStudent = [];
+      collegesForStudent = [];
+    }
     const balance = user ? Number(user.balance) : 0;
 
     let subscriptionsFeature = false;
@@ -206,6 +234,13 @@ export default async function DashboardPage() {
       storePurchases = await listStudentStorePurchases(session.user.id).catch(() => []);
     } catch {
       subscriptionsFeature = false;
+    }
+
+    let unreadNotificationCount = 0;
+    try {
+      unreadNotificationCount = await countUnreadStudentNotifications(session.user.id);
+    } catch {
+      unreadNotificationCount = 0;
     }
 
     return (
@@ -251,8 +286,48 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <ActivateCodeSection />
+          <Link
+            href="/dashboard/notifications"
+            className={`relative flex flex-col justify-center rounded-[var(--radius-card)] border p-6 shadow-[var(--shadow-card)] text-center transition ${
+              unreadNotificationCount > 0
+                ? "border-amber-500/60 bg-amber-500/10 hover:border-amber-500"
+                : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]/30"
+            }`}
+          >
+            {unreadNotificationCount > 0 ? (
+              <>
+                <span className="absolute start-4 top-4 inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+                <p className="mb-3 rounded-[var(--radius-btn)] border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-900">
+                  {t("dashboard.page.unreadNotificationsWarning", "You have unread notifications")}
+                </p>
+              </>
+            ) : null}
+            <h2 className="text-lg font-semibold text-[var(--color-foreground)]">
+              {t("dashboard.page.notificationsTitle", "Notifications")}
+            </h2>
+            <p className="mt-2 text-sm text-[var(--color-muted)]">
+              {t("dashboard.page.notificationsCardDesc", "View all messages from teachers and the platform team")}
+            </p>
+            <span
+              className={`mx-auto mt-4 inline-flex items-center gap-2 rounded-[var(--radius-btn)] px-5 py-2.5 text-base font-medium text-white transition ${
+                unreadNotificationCount > 0
+                  ? "animate-pulse bg-amber-500 hover:bg-amber-600"
+                  : "bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]"
+              }`}
+            >
+              {unreadNotificationCount > 0 ? (
+                <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-80" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                </span>
+              ) : null}
+              {t("dashboard.page.openNotificationsButton", "Open notifications")}
+            </span>
+          </Link>
           <Link
             href="/dashboard/messages"
             className="flex flex-col justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)] text-center transition hover:border-[var(--color-primary)]/30"
@@ -330,7 +405,7 @@ export default async function DashboardPage() {
           </section>
         ) : null}
 
-        <MyCoursesSection courses={enrolledCourses} />
+        <MyCoursesSection courses={publishedCoursesForStudent} colleges={collegesForStudent} />
 
         <HomeReviewsSection
           reviews={studentReviews}

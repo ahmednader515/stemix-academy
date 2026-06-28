@@ -8,6 +8,8 @@ export async function Footer({
   whatsappUrl,
   facebookUrl,
   youtubeUrl,
+  tiktokUrl,
+  instagramUrl,
 }: {
   footerTitle?: string;
   footerTagline?: string;
@@ -15,6 +17,8 @@ export async function Footer({
   whatsappUrl?: string | null;
   facebookUrl?: string | null;
   youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  instagramUrl?: string | null;
 }) {
   const t = await getServerTranslator();
   const defaultTitle = t("footer.defaultTitle", "My Learning Platform");
@@ -29,6 +33,8 @@ export async function Footer({
     { href: facebookUrl, label: "Facebook" },
     { href: whatsappUrl, label: "WhatsApp" },
     { href: youtubeUrl, label: "YouTube" },
+    { href: tiktokUrl, label: "TikTok" },
+    { href: instagramUrl, label: "Instagram" },
   ].filter((s) => s.href?.trim());
 
   return (

@@ -125,7 +125,7 @@ export function Header({
             <Link href="/courses" className={navLinkClass}>
               {t("common.courses", "Courses")}
             </Link>
-            <Link href="/courses" className={navLinkClass}>
+            <Link href="/courses?free=1" className={navLinkClass}>
               {t("beHome.freeSessions", "Free sessions")}
             </Link>
           </nav>

@@ -177,6 +177,10 @@ export const homepageSettingsFormUiAr = {
   telegramTeacher: "رابط Telegram (دعم المدرّس — يمين)",
   phTelegram: "t.me/yourchannel أو https://t.me/yourchannel",
   emptyHidesTelegram: "فارغ = عدم عرض زر Telegram.",
+  tiktokTeacher: "رابط TikTok (دعم المدرّس — يمين)",
+  emptyHidesTiktok: "فارغ = عدم عرض زر TikTok.",
+  instagramTeacher: "رابط Instagram (دعم المدرّس — يمين)",
+  emptyHidesInstagram: "فارغ = عدم عرض زر Instagram.",
   youtubeTeam: "رابط YouTube (دعم الفريق — يسار)",
   emptyHidesYoutubeTeam: "فارغ = عدم عرض زر YouTube (يسار).",
   linkedinTeam: "رابط LinkedIn (دعم الفريق — يسار)",
@@ -188,6 +192,10 @@ export const homepageSettingsFormUiAr = {
   telegramTeam: "رابط Telegram (دعم الفريق — يسار)",
   phTelegramTeam: "t.me/teamchannel أو https://t.me/teamchannel",
   emptyHidesTelegramTeam: "فارغ = عدم عرض زر Telegram (يسار).",
+  tiktokTeam: "رابط TikTok (دعم الفريق — يسار)",
+  emptyHidesTiktokTeam: "فارغ = عدم عرض زر TikTok (يسار).",
+  instagramTeam: "رابط Instagram (دعم الفريق — يسار)",
+  emptyHidesInstagramTeam: "فارغ = عدم عرض زر Instagram (يسار).",
   leftSocialDisabledNote:
     "أزرار الجهة اليسرى معطلة حالياً، ويمكنك إبقاء الروابط محفوظة لتفعيلها لاحقاً.",
 } as const;

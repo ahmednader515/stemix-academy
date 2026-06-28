@@ -37,22 +37,22 @@ function normalizeSearch(s: string) {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function categoryLabel(cat: CategoryShape): string {
-  if (!cat) return "بدون تصنيف";
+function categoryLabel(cat: CategoryShape, fallback: string): string {
+  if (!cat) return fallback;
   const ar = (cat.nameAr ?? cat.name_ar)?.trim();
   if (ar) return ar;
   const n = cat.name?.trim();
   if (n) return n;
-  return "بدون تصنيف";
+  return fallback;
 }
 
-function groupCoursesByCategory(courses: TeacherCourseListItem[]) {
+function groupCoursesByCategory(courses: TeacherCourseListItem[], uncategorizedLabel: string) {
   const map = new Map<string, { label: string; courses: TeacherCourseListItem[] }>();
   const order: string[] = [];
   for (const course of courses) {
     const cat = course.category ?? null;
     const key = cat?.slug?.trim() || "__uncategorized__";
-    const label = categoryLabel(cat);
+    const label = categoryLabel(cat, uncategorizedLabel);
     let entry = map.get(key);
     if (!entry) {
       entry = { label, courses: [] };
@@ -131,7 +131,10 @@ export function TeacherCoursesSearch({
     [courses, query],
   );
 
-  const groups = useMemo(() => groupCoursesByCategory(filtered), [filtered]);
+  const groups = useMemo(
+    () => groupCoursesByCategory(filtered, t("courses.uncategorizedCollege", "دورات أخرى")),
+    [filtered, t],
+  );
 
   const inputId = groupByCategory ? "teacher-courses-search" : "all-courses-search";
 

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getCategoriesForDashboard } from "@/lib/db";
+import { getCollegesForDashboard } from "@/lib/db";
 
-/** أقسام لوحة الدورات — المدرس يرى أقسامه فقط؛ الأدمن/المساعد يرون أقسام المنصة والأدمن */
+/** @deprecated use GET /api/colleges */
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function GET() {
     if (role !== "ADMIN" && role !== "ASSISTANT_ADMIN" && role !== "TEACHER") {
       return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
     }
-    const categories = await getCategoriesForDashboard(session.user.id, role);
+    const categories = await getCollegesForDashboard(session.user.id, role);
     return NextResponse.json(categories);
   } catch (error) {
     console.error("API categories:", error);

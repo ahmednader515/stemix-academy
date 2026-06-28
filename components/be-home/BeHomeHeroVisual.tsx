@@ -1,159 +1,115 @@
 import Image from "next/image";
-import { Cairo } from "next/font/google";
-import type { ReactNode } from "react";
-
-const cairo = Cairo({
-  subsets: ["arabic", "latin"],
-  weight: ["600", "700", "800"],
-  display: "swap",
-});
+import { almarai } from "@/lib/fonts";
 
 type Props = {
   imageUrl: string;
   imageAlt: string;
 };
 
-type DiamondTile = {
+type BentoCard = {
   id: string;
-  variant: "navy" | "gold" | "gold-dark-text" | "outline";
-  size: "sm" | "md" | "lg";
+  icon: string;
+  title: string;
+  subtitle?: string;
+  variant: "navy" | "amber" | "sky" | "white";
   className: string;
-  content: ReactNode;
 };
 
-const TILES: DiamondTile[] = [
+const CARDS: BentoCard[] = [
   {
     id: "exams",
+    icon: "📋",
+    title: "حل الامتحانات",
+    subtitle: "السابقة",
     variant: "navy",
-    size: "lg",
-    className: "be-hero-tile--exams",
-    content: (
-      <>
-        حل الامتحانات
-        <br />
-        السابقة
-      </>
-    ),
+    className: "be-hero-bento__card--exams",
   },
   {
     id: "homework",
-    variant: "gold",
-    size: "md",
-    className: "be-hero-tile--homework",
-    content: (
-      <>
-        شرح الواجبات
-        <br />
-        والمساعدة في حلها
-      </>
-    ),
+    icon: "✏️",
+    title: "شرح الواجبات",
+    subtitle: "ومساعدة في حلها",
+    variant: "amber",
+    className: "be-hero-bento__card--homework",
   },
   {
     id: "courses",
-    variant: "navy",
-    size: "sm",
-    className: "be-hero-tile--courses",
-    content: (
-      <>
-        <span className="be-hero-tile__stat">+350</span>
-        <span className="be-hero-tile__stat-label">دورة</span>
-      </>
-    ),
+    icon: "📚",
+    title: "+350",
+    subtitle: "دورة",
+    variant: "sky",
+    className: "be-hero-bento__card--courses",
   },
   {
     id: "support",
-    variant: "gold-dark-text",
-    size: "md",
-    className: "be-hero-tile--support",
-    content: (
-      <>
-        دعم مباشر لآخر
-        <br />
-        دقيقة قبل
-        <br />
-        الامتحان
-      </>
-    ),
+    icon: "💬",
+    title: "دعم مباشر",
+    subtitle: "قبل الامتحان",
+    variant: "amber",
+    className: "be-hero-bento__card--support",
   },
   {
     id: "evaluations",
-    variant: "gold",
-    size: "md",
-    className: "be-hero-tile--evaluations",
-    content: (
-      <>
-        تقييمات
-        <br />
-        دورية
-      </>
-    ),
+    icon: "⭐",
+    title: "تقييمات",
+    subtitle: "دورية",
+    variant: "white",
+    className: "be-hero-bento__card--evaluations",
   },
   {
     id: "reviews",
-    variant: "outline",
-    size: "md",
-    className: "be-hero-tile--reviews",
-    content: (
-      <>
-        مراجعات شاملة
-        <br />
-        قبل الاختبار
-      </>
-    ),
+    icon: "📝",
+    title: "مراجعات شاملة",
+    subtitle: "قبل الاختبار",
+    variant: "white",
+    className: "be-hero-bento__card--reviews",
   },
   {
     id: "students",
-    variant: "gold-dark-text",
-    size: "md",
-    className: "be-hero-tile--students",
-    content: (
-      <>
-        <span className="be-hero-tile__stat">+4K</span>
-        <span className="be-hero-tile__stat-label">طالب/ة</span>
-      </>
-    ),
+    icon: "👥",
+    title: "+4K",
+    subtitle: "طالب/ة",
+    variant: "navy",
+    className: "be-hero-bento__card--students",
   },
 ];
 
-function BeHeroDiamond({ content, variant, size, className }: Omit<DiamondTile, "id">) {
+function BentoFeatureCard({ icon, title, subtitle, variant, className }: Omit<BentoCard, "id">) {
   return (
-    <div className={`be-hero-tile ${className} be-hero-tile--${variant} be-hero-tile--${size}`}>
-      <div className="be-hero-tile__diamond">
-        <div className="be-hero-tile__text">{content}</div>
+    <div className={`be-hero-bento__card be-hero-bento__card--${variant} ${className}`}>
+      <span className="be-hero-bento__icon" aria-hidden>
+        {icon}
+      </span>
+      <div className="be-hero-bento__card-text">
+        <p className="be-hero-bento__card-title">{title}</p>
+        {subtitle ? <p className="be-hero-bento__card-sub">{subtitle}</p> : null}
       </div>
     </div>
   );
 }
 
-/** هيرو بصري — ماسة مركزية مع مربعات دوّارة حولها (مطابق لتصميم المرجع) */
+/** Bento-grid hero visual — rounded cards instead of rotated diamonds */
 export function BeHomeHeroVisual({ imageUrl, imageAlt }: Props) {
   return (
-    <div className={`be-hero-visual ${cairo.className}`} dir="rtl">
-      <div className="be-hero-visual__bg" aria-hidden />
-      <div className="be-hero-visual__stage">
-        <div className="be-hero-visual__center">
-          <div className="be-hero-visual__center-diamond">
-            <div className="be-hero-visual__center-inner">
-              <Image
-                src={imageUrl}
-                alt={imageAlt}
-                fill
-                className="object-cover"
-                priority
-                sizes="(max-width: 768px) 70vw, 300px"
-              />
-            </div>
+    <div className={`be-hero-bento ${almarai.className}`} dir="rtl">
+      <div className="be-hero-bento__frame">
+        <div className="be-hero-bento__main">
+          <div className="be-hero-bento__main-inner">
+            <Image
+              src={imageUrl}
+              alt={imageAlt}
+              fill
+              className="object-cover"
+              priority
+              sizes="(max-width: 768px) 85vw, 420px"
+            />
+            <div className="be-hero-bento__main-shine" aria-hidden />
           </div>
         </div>
 
-        {TILES.map((tile) => (
-          <BeHeroDiamond key={tile.id} {...tile} />
+        {CARDS.map((card) => (
+          <BentoFeatureCard key={card.id} {...card} />
         ))}
-
-        <span className="be-hero-dot be-hero-dot--1" aria-hidden />
-        <span className="be-hero-dot be-hero-dot--2" aria-hidden />
-        <span className="be-hero-dot be-hero-dot--3" aria-hidden />
-        <span className="be-hero-dot be-hero-dot--4" aria-hidden />
       </div>
     </div>
   );

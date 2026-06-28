@@ -78,7 +78,21 @@ model Course {
   createdBy        User?    @relation("CourseCreator", fields: [createdById], references: [id], onDelete: SetNull)
   lessons          Lesson[]
   quizzes          Quiz[]
+  chapters         CourseChapter[]
   enrollments      Enrollment[]
+}
+
+model CourseChapter {
+  id        String   @id @default(cuid())
+  courseId  String   @map("course_id")
+  title     String
+  titleAr   String?  @map("title_ar")
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+  quizzes   Quiz[]
 }
 
 enum QuestionType {
@@ -88,14 +102,16 @@ enum QuestionType {
 }
 
 model Quiz {
-  id               String        @id @default(cuid())
+  id               String         @id @default(cuid())
   title            String
-  courseId         String        @map("course_id")
-  order            Int           @default(0)
-  timeLimitMinutes Int?          @map("time_limit_minutes") // وقت الاختبار بالدقائق (null = غير محدود)
-  createdAt        DateTime      @default(now()) @map("created_at")
-  updatedAt        DateTime      @updatedAt @map("updated_at")
-  course           Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId         String         @map("course_id")
+  chapterId        String?        @map("chapter_id")
+  order            Int            @default(0)
+  timeLimitMinutes Int?           @map("time_limit_minutes") // وقت الاختبار بالدقائق (null = غير محدود)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter          CourseChapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
   questions        Question[]
   quizAttempts     QuizAttempt[]
 }
@@ -145,18 +161,20 @@ model QuizAttempt {
 }
 
 model Lesson {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   title     String
-  titleAr   String?  @map("title_ar")
+  titleAr   String?        @map("title_ar")
   slug      String
-  content   String?  @db.Text
-  videoUrl  String?  @map("video_url")
-  pdfUrl    String?  @map("pdf_url")
+  content   String?        @db.Text
+  videoUrl  String?        @map("video_url")
+  pdfUrl    String?        @map("pdf_url")
   duration  Int?     // بالدقائق (اختياري - غير مستخدم في النموذج)
   order     Int      @default(0)
   courseId  String   @map("course_id")
+  chapterId String?  @map("chapter_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter   CourseChapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
   @@unique([courseId, slug])
 }

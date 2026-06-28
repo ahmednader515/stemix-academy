@@ -134,11 +134,15 @@ export function HomepageSettingsForm({
     whatsappUrl: initialSettings.whatsappUrl ?? "",
     facebookUrl: initialSettings.facebookUrl ?? "",
     telegramUrl: initialSettings.telegramUrl ?? "",
+    tiktokUrl: initialSettings.tiktokUrl ?? "",
+    instagramUrl: initialSettings.instagramUrl ?? "",
     teamYoutubeUrl: initialSettings.teamYoutubeUrl ?? "",
     teamLinkedinUrl: initialSettings.teamLinkedinUrl ?? "",
     teamWhatsappUrl: initialSettings.teamWhatsappUrl ?? "",
     teamFacebookUrl: initialSettings.teamFacebookUrl ?? "",
     teamTelegramUrl: initialSettings.teamTelegramUrl ?? "",
+    teamTiktokUrl: initialSettings.teamTiktokUrl ?? "",
+    teamInstagramUrl: initialSettings.teamInstagramUrl ?? "",
     socialRightLabel: initialSettings.socialRightLabel ?? "",
     socialLeftLabel: initialSettings.socialLeftLabel ?? "",
     socialLeftEnabled: initialSettings.socialLeftEnabled ?? true,
@@ -350,11 +354,15 @@ export function HomepageSettingsForm({
           whatsappUrl: form.whatsappUrl.trim() || null,
           facebookUrl: form.facebookUrl.trim() || null,
           telegramUrl: normalizeTelegramInput(form.telegramUrl) || null,
+          tiktokUrl: form.tiktokUrl.trim() || null,
+          instagramUrl: form.instagramUrl.trim() || null,
           teamYoutubeUrl: form.teamYoutubeUrl.trim() || null,
           teamLinkedinUrl: form.teamLinkedinUrl.trim() || null,
           teamWhatsappUrl: form.teamWhatsappUrl.trim() || null,
           teamFacebookUrl: form.teamFacebookUrl.trim() || null,
           teamTelegramUrl: normalizeTelegramInput(form.teamTelegramUrl) || null,
+          teamTiktokUrl: form.teamTiktokUrl.trim() || null,
+          teamInstagramUrl: form.teamInstagramUrl.trim() || null,
           socialRightLabel: form.socialRightLabel.trim() || null,
           socialRightLabelEn: null,
           socialLeftLabel: form.socialLeftLabel.trim() || null,
@@ -1841,6 +1849,28 @@ export function HomepageSettingsForm({
             />
             <p className="mt-1 text-xs text-[var(--color-muted)]">{fh("emptyHidesTelegram")}</p>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-foreground)]">{fh("tiktokTeacher")}</label>
+            <input
+              type="url"
+              value={form.tiktokUrl}
+              onChange={(e) => setForm((f) => ({ ...f, tiktokUrl: e.target.value }))}
+              className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
+              placeholder="https://www.tiktok.com/@username"
+            />
+            <p className="mt-1 text-xs text-[var(--color-muted)]">{fh("emptyHidesTiktok")}</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-foreground)]">{fh("instagramTeacher")}</label>
+            <input
+              type="url"
+              value={form.instagramUrl}
+              onChange={(e) => setForm((f) => ({ ...f, instagramUrl: e.target.value }))}
+              className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
+              placeholder="https://www.instagram.com/username"
+            />
+            <p className="mt-1 text-xs text-[var(--color-muted)]">{fh("emptyHidesInstagram")}</p>
+          </div>
           <hr className="border-[var(--color-border)]" />
           {form.socialLeftEnabled ? (
             <>
@@ -1898,6 +1928,28 @@ export function HomepageSettingsForm({
                   placeholder={fh("phTelegramTeam")}
                 />
                 <p className="mt-1 text-xs text-[var(--color-muted)]">{fh("emptyHidesTelegramTeam")}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-foreground)]">{fh("tiktokTeam")}</label>
+                <input
+                  type="url"
+                  value={form.teamTiktokUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, teamTiktokUrl: e.target.value }))}
+                  className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
+                  placeholder="https://www.tiktok.com/@team"
+                />
+                <p className="mt-1 text-xs text-[var(--color-muted)]">{fh("emptyHidesTiktokTeam")}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-foreground)]">{fh("instagramTeam")}</label>
+                <input
+                  type="url"
+                  value={form.teamInstagramUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, teamInstagramUrl: e.target.value }))}
+                  className="mt-1 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2"
+                  placeholder="https://www.instagram.com/team"
+                />
+                <p className="mt-1 text-xs text-[var(--color-muted)]">{fh("emptyHidesInstagramTeam")}</p>
               </div>
             </>
           ) : (

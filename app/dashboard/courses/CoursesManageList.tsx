@@ -16,6 +16,7 @@ type CourseRow = {
   price: number;
   imageUrl: string | null;
   lessonsCount: number;
+  chaptersCount: number;
   enrollmentsCount: number;
   category: { id: string; name: string; nameAr?: string | null } | null;
 };
@@ -24,14 +25,18 @@ function CourseTableRow({
   c,
   deletingId,
   confirmDelete,
+  publishingId,
   onDelete,
+  onTogglePublish,
   t,
   egp,
 }: {
   c: CourseRow;
   deletingId: string | null;
   confirmDelete: string | null;
+  publishingId: string | null;
   onDelete: (id: string) => void;
+  onTogglePublish: (id: string, isPublished: boolean) => void;
   t: (k: string, fb?: string) => string;
   egp: string;
 }) {
@@ -48,7 +53,10 @@ function CourseTableRow({
           </span>
         </div>
       </td>
-      <td className="p-3 text-[var(--color-muted)]">{c.lessonsCount}</td>
+      <td className="p-3 text-[var(--color-muted)]">
+        {c.chaptersCount > 0 ? `${c.chaptersCount} ${t(`${L}.colChapters`)} · ` : ""}
+        {c.lessonsCount}
+      </td>
       <td className="p-3 text-[var(--color-muted)]">{c.enrollmentsCount}</td>
       <td className="p-3">
         {c.price.toFixed(2)} {egp}
@@ -66,6 +74,22 @@ function CourseTableRow({
       </td>
       <td className="p-3">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onTogglePublish(c.id, c.isPublished)}
+            disabled={deletingId !== null || publishingId !== null}
+            className={
+              c.isPublished
+                ? "rounded-[var(--radius-btn)] border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium text-[var(--color-muted)] hover:bg-[var(--color-background)] disabled:opacity-50"
+                : "rounded-[var(--radius-btn)] border border-[var(--color-success)]/50 bg-[var(--color-success)]/10 px-3 py-1.5 text-sm font-medium text-[var(--color-success)] hover:bg-[var(--color-success)]/20 disabled:opacity-50"
+            }
+          >
+            {publishingId === c.id
+              ? t(`${L}.publishing`)
+              : c.isPublished
+                ? t(`${L}.unpublish`)
+                : t(`${L}.publish`)}
+          </button>
           <Link
             href={`/dashboard/courses/${c.id}/edit`}
             className="rounded-[var(--radius-btn)] border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--color-background)]"
@@ -103,6 +127,7 @@ export function CoursesManageList({ courses }: { courses: CourseRow[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   const filteredCourses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -148,6 +173,23 @@ export function CoursesManageList({ courses }: { courses: CourseRow[] }) {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       alert(data.error ?? t(`${L}.deleteCourseFailed`));
+      return;
+    }
+    router.refresh();
+  }
+
+  async function handleTogglePublish(id: string, currentlyPublished: boolean) {
+    if (currentlyPublished && !confirm(t(`${L}.confirmUnpublish`))) return;
+    setPublishingId(id);
+    const res = await fetch(`/api/dashboard/courses/${id}/publish`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPublished: !currentlyPublished }),
+    });
+    setPublishingId(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? t(`${L}.publishToggleFailed`));
       return;
     }
     router.refresh();
@@ -223,7 +265,9 @@ export function CoursesManageList({ courses }: { courses: CourseRow[] }) {
                       c={c}
                       deletingId={deletingId}
                       confirmDelete={confirmDelete}
+                      publishingId={publishingId}
                       onDelete={handleDelete}
+                      onTogglePublish={handleTogglePublish}
                       t={t}
                       egp={egp}
                     />

@@ -40,6 +40,9 @@ export interface Category {
   updated_at: Date;
 }
 
+/** كلية — نفس جدول Category في قاعدة البيانات */
+export type College = Category;
+
 export interface Review {
   id: string;
   text: string;
@@ -122,12 +125,16 @@ export interface HomepageSetting {
   whatsappUrl: string | null;
   facebookUrl: string | null;
   telegramUrl?: string | null;
+  tiktokUrl?: string | null;
+  instagramUrl?: string | null;
   /** روابط دعم فريق المنصة (أزرار ثابتة أسفل يسار الصفحة الرئيسية) */
   teamYoutubeUrl?: string | null;
   teamLinkedinUrl?: string | null;
   teamWhatsappUrl?: string | null;
   teamFacebookUrl?: string | null;
   teamTelegramUrl?: string | null;
+  teamTiktokUrl?: string | null;
+  teamInstagramUrl?: string | null;
   /** كلمة تسبق اسم المنصة في أزرار يمين الصفحة (مثال: الدعم) */
   socialRightLabel?: string | null;
   socialRightLabelEn?: string | null;
@@ -281,6 +288,17 @@ export interface StoreProduct {
 }
 
 export type SubscriptionDurationKind = "week" | "month" | "year";
+export type SubscriptionExpiryMode = "duration" | "fixed_date";
+
+export interface CourseChapter {
+  id: string;
+  course_id: string;
+  title: string;
+  title_ar: string | null;
+  order: number;
+  created_at: Date;
+  updated_at: Date;
+}
 
 export interface Course {
   id: string;
@@ -403,6 +421,7 @@ export interface Lesson {
   duration: number | null;
   order: number;
   course_id: string;
+  chapter_id?: string | null;
   accepts_homework?: boolean;
   created_at: Date;
   updated_at: Date;
@@ -414,6 +433,7 @@ export interface Quiz {
   id: string;
   title: string;
   course_id: string;
+  chapter_id?: string | null;
   order: number;
   time_limit_minutes?: number | null;
   created_at: Date;
@@ -533,6 +553,16 @@ export interface QuestionOptionApp {
   text: string;
   isCorrect: boolean;
   questionId: string;
+}
+
+/** إشعار داخل التطبيق من موظف/مدرس إلى طالب */
+export interface StudentNotification {
+  id: string;
+  studentUserId: string;
+  senderUserId: string;
+  message: string;
+  readAt: Date | null;
+  createdAt: Date;
 }
 
 /** محادثة بين موظف (أدمن/مساعد) وطالب */

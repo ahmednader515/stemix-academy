@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { canManageCourse } from "@/lib/permissions";
-import { getCourseById, getLessonsByCourseId } from "@/lib/db";
+import { getCourseById, getLessonsByCourseId, getChaptersByCourseId } from "@/lib/db";
 
 /** جلب حصص دورة — للأدمن/مساعد الأدمن */
 export async function GET(
@@ -28,17 +28,30 @@ export async function GET(
   }
 
   try {
-    const lessons = await getLessonsByCourseId(id.trim());
+    const [lessons, chapters] = await Promise.all([
+      getLessonsByCourseId(id.trim()),
+      getChaptersByCourseId(id.trim()),
+    ]);
+    const chapterById = new Map(chapters.map((ch) => [ch.id, ch]));
     const payload = lessons.map((l) => {
       const r = l as unknown as Record<string, unknown>;
+      const chapterId = (r.chapterId ?? r.chapter_id ?? null) as string | null;
+      const ch = chapterId ? chapterById.get(chapterId) : null;
       return {
         id: String(r.id ?? ""),
         title: String(r.title ?? ""),
         titleAr: (r.titleAr ?? r.title_ar ?? null) as string | null,
         order: Number(r.order ?? 0),
+        chapterId,
+        chapterTitle: ch ? String(ch.title_ar ?? ch.title ?? "") : null,
       };
     });
-    return NextResponse.json(payload);
+    return NextResponse.json({ lessons: payload, chapters: chapters.map((ch) => ({
+      id: ch.id,
+      title: ch.title,
+      titleAr: ch.title_ar,
+      order: ch.order,
+    })) });
   } catch (e) {
     console.error("dashboard course lessons:", e);
     return NextResponse.json({ error: "فشل جلب الحصص" }, { status: 500 });

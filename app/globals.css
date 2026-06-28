@@ -3,13 +3,17 @@
 @import "../components/be-home/be-home.css";
 
 @theme inline {
-  --font-sans: var(--font-outfit), system-ui, sans-serif;
-  --font-display: var(--font-outfit), system-ui, sans-serif;
+  --font-sans: var(--font-family-sans);
+  --font-display: var(--font-family-display);
+  --font-bento: var(--font-family-bento);
   --radius-card: 1rem;
   --radius-btn: 0.75rem;
 }
 
 :root {
+  --font-family-sans: var(--font-tajawal), "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-family-display: var(--font-cairo), var(--font-tajawal), system-ui, sans-serif;
+  --font-family-bento: var(--font-almarai), var(--font-cairo), system-ui, sans-serif;
   --color-background: #ffffff;
   --color-foreground: #1e293b;
   --color-surface: #ffffff;
@@ -46,7 +50,7 @@ body {
   background-attachment: fixed;
   background-size: 100% 100vh;
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-family-sans);
   min-height: 100vh;
 }
 

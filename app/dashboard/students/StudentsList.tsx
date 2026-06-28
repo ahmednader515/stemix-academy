@@ -3,11 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddBalanceButton } from "./AddBalanceButton";
-import { BulkWhatsappModal } from "./BulkWhatsappModal";
+import { BulkNotifyModal } from "./BulkNotifyModal";
 import { useT } from "@/components/LocaleProvider";
 import { useDashboardTable } from "@/lib/i18n/dashboard-table";
 import { isValidEgyptWhatsapp, normalizeEgyptWhatsapp } from "@/lib/whatsapp-phone";
-import { studentsToWhatsappRecipients } from "@/lib/whatsapp-bulk";
 import { downloadStudentsExcel } from "@/lib/export-students-excel";
 
 type Course = { id: string; title: string; titleAr: string | null; slug: string };
@@ -78,7 +77,7 @@ export function StudentsList({
   const [error, setError] = useState("");
   const [enrollError, setEnrollError] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [bulkWhatsappTarget, setBulkWhatsappTarget] = useState<"selected" | "all" | null>(null);
+  const [bulkNotifyTarget, setBulkNotifyTarget] = useState<"selected" | "all" | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const dash = t("dashboard.studentsPage.dash", "—");
@@ -123,13 +122,10 @@ export function StudentsList({
   }
 
   const bulkModalStudents = useMemo(() => {
-    if (!bulkWhatsappTarget) return [];
-    if (bulkWhatsappTarget === "all") return filtered;
+    if (!bulkNotifyTarget) return [];
+    if (bulkNotifyTarget === "all") return filtered;
     return filtered.filter((s) => selectedIds.has(s.id));
-  }, [bulkWhatsappTarget, filtered, selectedIds]);
-
-  const bulkRecipients = useMemo(() => studentsToWhatsappRecipients(bulkModalStudents), [bulkModalStudents]);
-  const bulkSkippedCount = bulkModalStudents.length - bulkRecipients.length;
+  }, [bulkNotifyTarget, filtered, selectedIds]);
 
   async function handleExportExcel() {
     if (filtered.length === 0) return;
@@ -336,19 +332,19 @@ export function StudentsList({
         ) : null}
         <button
           type="button"
-          onClick={() => setBulkWhatsappTarget("selected")}
+          onClick={() => setBulkNotifyTarget("selected")}
           disabled={selectedFilteredCount === 0}
-          className="rounded-[var(--radius-btn)] bg-[#25D366] px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          className="rounded-[var(--radius-btn)] bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
         >
-          {t("dashboard.studentsPage.bulkWhatsappSelected", "WhatsApp — selected")}
+          {t("dashboard.studentsPage.bulkNotifySelected", "Notify — selected")}
         </button>
         <button
           type="button"
-          onClick={() => setBulkWhatsappTarget("all")}
+          onClick={() => setBulkNotifyTarget("all")}
           disabled={filtered.length === 0}
-          className="rounded-[var(--radius-btn)] border border-[#25D366] bg-white px-3 py-2 text-sm font-semibold text-[#128C7E] hover:bg-[#25D366]/10 disabled:opacity-50"
+          className="rounded-[var(--radius-btn)] border border-[var(--color-primary)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-50"
         >
-          {t("dashboard.studentsPage.bulkWhatsappAll", "WhatsApp — all shown")}
+          {t("dashboard.studentsPage.bulkNotifyAll", "Notify — all shown")}
         </button>
         <button
           type="button"
@@ -539,11 +535,10 @@ export function StudentsList({
         </div>
       )}
 
-      {bulkWhatsappTarget ? (
-        <BulkWhatsappModal
-          recipients={bulkRecipients}
-          skippedCount={bulkSkippedCount}
-          onClose={() => setBulkWhatsappTarget(null)}
+      {bulkNotifyTarget ? (
+        <BulkNotifyModal
+          students={bulkModalStudents.map((s) => ({ id: s.id, name: s.name }))}
+          onClose={() => setBulkNotifyTarget(null)}
         />
       ) : null}
 

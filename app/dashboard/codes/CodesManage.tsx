@@ -33,7 +33,7 @@ export function CodesManage({ courseOptions }: { courseOptions: { id: string; ti
   const [generating, setGenerating] = useState(false);
   const [createCourseId, setCreateCourseId] = useState("");
   const [createCount, setCreateCount] = useState(5);
-  const [courseLessons, setCourseLessons] = useState<Array<{ id: string; title: string; titleAr: string | null; order: number }>>([]);
+  const [courseLessons, setCourseLessons] = useState<Array<{ id: string; title: string; titleAr: string | null; order: number; chapterId?: string | null; chapterTitle?: string | null }>>([]);
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<string>>(new Set());
   const [courseQuizzes, setCourseQuizzes] = useState<Array<{ id: string; title: string }>>([]);
@@ -119,7 +119,7 @@ export function CodesManage({ courseOptions }: { courseOptions: { id: string; ti
         return data;
       })
       .then((data) => {
-        const list = Array.isArray(data) ? data : [];
+        const list = Array.isArray(data) ? data : Array.isArray(data?.lessons) ? data.lessons : [];
         setCourseLessons(list);
         // تنظيف أي اختيارات قديمة غير موجودة
         setSelectedLessonIds((prev) => {
@@ -344,29 +344,44 @@ export function CodesManage({ courseOptions }: { courseOptions: { id: string; ti
                       <span className="text-[var(--color-muted)]">{t(`${M}.noLessonsInCourse`)}</span>
                     ) : (
                       <>
-                        <div className="max-h-32 space-y-1 overflow-auto pr-1">
-                          {courseLessons.map((l) => {
-                            const title = l.titleAr ?? l.title;
-                            const checked = selectedLessonIds.has(l.id);
-                            return (
-                              <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-[var(--color-border)]/30">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(e) => {
-                                    setSelectedLessonIds((prev) => {
-                                      const next = new Set(prev);
-                                      if (e.target.checked) next.add(l.id);
-                                      else next.delete(l.id);
-                                      return next;
-                                    });
-                                  }}
-                                  className="rounded border-[var(--color-border)]"
-                                />
-                                <span className="truncate" title={title}>{title}</span>
-                              </label>
-                            );
-                          })}
+                        <div className="max-h-32 space-y-2 overflow-auto pr-1">
+                          {(() => {
+                            const groups = new Map<string, typeof courseLessons>();
+                            for (const l of courseLessons) {
+                              const key = l.chapterTitle?.trim() || t(`${M}.uncategorizedLessons`);
+                              if (!groups.has(key)) groups.set(key, []);
+                              groups.get(key)!.push(l);
+                            }
+                            return Array.from(groups.entries()).map(([groupTitle, items]) => (
+                              <div key={groupTitle}>
+                                {groups.size > 1 && (
+                                  <p className="mb-0.5 text-[10px] font-semibold uppercase text-[var(--color-muted)]">{groupTitle}</p>
+                                )}
+                                {items.map((l) => {
+                                  const title = l.titleAr ?? l.title;
+                                  const checked = selectedLessonIds.has(l.id);
+                                  return (
+                                    <label key={l.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-[var(--color-border)]/30">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={(e) => {
+                                          setSelectedLessonIds((prev) => {
+                                            const next = new Set(prev);
+                                            if (e.target.checked) next.add(l.id);
+                                            else next.delete(l.id);
+                                            return next;
+                                          });
+                                        }}
+                                        className="rounded border-[var(--color-border)]"
+                                      />
+                                      <span className="truncate" title={title}>{title}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ));
+                          })()}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-2">
                           <button
